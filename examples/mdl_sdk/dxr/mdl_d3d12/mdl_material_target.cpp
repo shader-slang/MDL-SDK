@@ -37,6 +37,9 @@
 #include "mdl_sdk.h"
 #include "texture.h"
 
+#include "slang.h"
+#include "slang-com-ptr.h"
+
 #include <example_shared.h>
 
 namespace mi { namespace examples { namespace mdl_d3d12
@@ -889,11 +892,25 @@ bool Mdl_material_target::compile()
         return false;
     }
 
+    // initialization for slang
+    {
+        printf("[S] Initializing slang\n");
+		Slang::ComPtr <slang::IGlobalSession> session(nullptr);
+        slang_createGlobalSession(SLANG_API_VERSION, session.writeRef());
+
+        printf("[S] Created global session for slang\n");
+		SlangCompileRequest* compile_request = spCreateCompileRequest(session);
+
+        printf("[S] Create compile request\n");
+        spDestroyCompileRequest(compile_request);
+
+        printf("[S] Destroyed compile request\n");
+    }
+
     // compile to DXIL
     {
         auto p = m_app->get_profiling().measure("compiling HLSL to DXIL");
         std::map<std::string, std::string> defines;
-        defines["TARGET_CODE_ID"] = get_shader_name_suffix();
 
         // use the material name of the first material
         std::string pseudo_file_name = "link_unit_code";
