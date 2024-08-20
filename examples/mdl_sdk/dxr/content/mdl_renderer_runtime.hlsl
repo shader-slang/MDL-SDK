@@ -26,15 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// MDL defines UV origin bottom left, D3D top left.
-// Because GLTF defines the UV origin also top left we end up flipping twice.
-// 1: from GLTF to MDL, in gltf.cpp when proccessing vertex data because it seems to be the common way.
-// 2: from MDL to D3D, implicity while uploading the texture data to the CPU
-// i.e., no flip required here.
-#if !defined(TEXTURE_VERTICAL_FLIP)
-    #define TEXTURE_VERTICAL_FLIP 0
-#endif
-
 /// Information passed to GPU for mapping id requested in the runtime functions to texture
 /// views of the corresponding type.
 struct Mdl_texture_info
@@ -192,25 +183,6 @@ SamplerState mdl_sampler_tex : register(s0);
 SamplerState mdl_sampler_light_profile : register(s1);
 SamplerState mdl_sampler_mbsdf : register(s2);
 
-// If USE_RES_DATA is defined, add a Res_data parameter to all resource handler functions.
-// This example doesn't use it, so we only put a dummy field in Res_data.
-#if USE_RES_DATA
-
-struct Res_data
-{
-    uint dummy;
-};
-
-#define RES_DATA_PARAM_DECL     Res_data res_data,
-#define RES_DATA_PARAM          res_data,
-
-#else
-
-#define RES_DATA_PARAM_DECL
-#define RES_DATA_PARAM
-
-#endif
-
 // ------------------------------------------------------------------------------------------------
 // Argument block access for dynamic parameters in class compilation mode
 // ------------------------------------------------------------------------------------------------
@@ -275,7 +247,7 @@ bool mdl_read_rodata_as_bool(int offs)
 // corresponds to ::tex::texture_isvalid(uniform texture_3d tex)
 // corresponds to ::tex::texture_isvalid(uniform texture_cube tex) // not supported by this example
 // corresponds to ::tex::texture_isvalid(uniform texture_ptex tex) // not supported by this example
-bool tex_texture_isvalid(RES_DATA_PARAM_DECL int tex)
+bool tex_texture_isvalid(int tex)
 {
     // assuming that there is no indexing out of bounds of the resource_infos and the view arrays
     return tex != 0; // invalid texture
@@ -341,7 +313,7 @@ float2 apply_smootherstep_filter(float2 uv, uint2 size)
 // Texturing functions, 2D
 // ------------------------------------------------------------------------------------------------
 
-int2 tex_res_2d(RES_DATA_PARAM_DECL int tex, int2 uv_tile, float frame)
+int2 tex_res_2d(int tex, int2 uv_tile, float frame)
 {
     if (tex == 0) return uint2(0, 0); // invalid texture
 
@@ -357,19 +329,19 @@ int2 tex_res_2d(RES_DATA_PARAM_DECL int tex, int2 uv_tile, float frame)
 }
 
 // corresponds to ::tex::width(uniform texture_2d tex, int2 uv_tile, float frame)
-int tex_width_2d(RES_DATA_PARAM_DECL int tex, int2 uv_tile, float frame)
+int tex_width_2d(int tex, int2 uv_tile, float frame)
 {
-    return tex_res_2d(RES_DATA_PARAM tex, uv_tile, frame).x;
+    return tex_res_2d(tex, uv_tile, frame).x;
 }
 
 // corresponds to ::tex::height(uniform texture_2d tex, int2 uv_tile)
-int tex_height_2d(RES_DATA_PARAM_DECL int tex, int2 uv_tile, float frame)
+int tex_height_2d(int tex, int2 uv_tile, float frame)
 {
-    return tex_res_2d(RES_DATA_PARAM tex, uv_tile, frame).y;
+    return tex_res_2d(tex, uv_tile, frame).y;
 }
 
 // corresponds to ::tex::first__frame(uniform texture_2d)
-int tex_first_frame_2d(RES_DATA_PARAM_DECL int tex)
+int tex_first_frame_2d(int tex)
 {
     if (tex == 0) return 0; // invalid texture
 
@@ -379,7 +351,7 @@ int tex_first_frame_2d(RES_DATA_PARAM_DECL int tex)
 }
 
 // corresponds to ::tex::last_frame(uniform texture_2d)
-int tex_last_frame_2d(RES_DATA_PARAM_DECL int tex)
+int tex_last_frame_2d(int tex)
 {
     if (tex == 0) return 0; // invalid texture
 
@@ -389,15 +361,13 @@ int tex_last_frame_2d(RES_DATA_PARAM_DECL int tex)
 }
 
 // corresponds to ::tex::lookup_float4(uniform texture_2d tex, float2 coord, ...)
-float4 tex_lookup_float4_2d(
-    RES_DATA_PARAM_DECL
-    int tex,
-    float2 coord,
-    int wrap_u,
-    int wrap_v,
-    float2 crop_u,
-    float2 crop_v,
-    float frame)
+float4 tex_lookup_float4_2d(int tex,
+                            float2 coord,
+                            int wrap_u,
+                            int wrap_v,
+                            float2 crop_u,
+                            float2 crop_v,
+                            float frame)
 {
     if (tex == 0) return float4(0, 0, 0, 0); // invalid texture
 
@@ -420,10 +390,6 @@ float4 tex_lookup_float4_2d(
 
     coord = apply_smootherstep_filter(coord, res);
 
-#if (TEXTURE_VERTICAL_FLIP == 1)
-    coord.y = 1.0 - coord.y;
-#endif
-
     // Note, since we don't have ddx and ddy in the compute pipeline, TextureObject::Sample() is not
     // available, we use SampleLevel instead and go for the most detailed level. Therefore, we don't
     // need mipmaps. Manual mip level computation is possible though.
@@ -431,36 +397,34 @@ float4 tex_lookup_float4_2d(
         mdl_sampler_tex, coord, /*lod=*/ 0.0f, /*offset=*/ int2(0, 0));
 }
 
-float3 tex_lookup_float3_2d(RES_DATA_PARAM_DECL int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+float3 tex_lookup_float3_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
-    return tex_lookup_float4_2d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
+    return tex_lookup_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
 }
 
-float3 tex_lookup_color_2d(RES_DATA_PARAM_DECL int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+float3 tex_lookup_color_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
-    return tex_lookup_float4_2d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
+    return tex_lookup_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
 }
 
-float2 tex_lookup_float2_2d(RES_DATA_PARAM_DECL int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+float2 tex_lookup_float2_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
-    return tex_lookup_float4_2d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xy;
+    return tex_lookup_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xy;
 }
 
-float tex_lookup_float_2d(RES_DATA_PARAM_DECL int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+float tex_lookup_float_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
-    return tex_lookup_float4_2d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).x;
+    return tex_lookup_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).x;
 }
 
 // corresponds to ::tex::lookup_float4(uniform texture_2d tex, float2 coord, ...) when derivatives are enabled
-float4 tex_lookup_deriv_float4_2d(
-    RES_DATA_PARAM_DECL
-    int tex,
-    Derived_float2 coord,
-    int wrap_u,
-    int wrap_v,
-    float2 crop_u,
-    float2 crop_v,
-    float frame)
+float4 tex_lookup_deriv_float4_2d(int tex,
+                                  Derived_float2 coord,
+                                  int wrap_u,
+                                  int wrap_v,
+                                  float2 crop_u,
+                                  float2 crop_v,
+                                  float frame)
 {
     if (tex == 0) return float4(0, 0, 0, 0); // invalid texture
 
@@ -483,12 +447,6 @@ float4 tex_lookup_deriv_float4_2d(
 
     coord.val = apply_smootherstep_filter(coord.val, res);
 
-#if (TEXTURE_VERTICAL_FLIP == 1)
-    coord.val.y = 1.0 - coord.val.y;
-    coord.dx.y *= -1.0;
-    coord.dy.y *= -1.0;
-#endif
-
     // Note, since we don't have ddx and ddy in the compute pipeline, TextureObject::Sample() is not
     // available, we use SampleLevel instead and go for the most detailed level. Therefore, we don't
     // need mipmaps. Manual mip level computation is possible though.
@@ -496,34 +454,32 @@ float4 tex_lookup_deriv_float4_2d(
         mdl_sampler_tex, coord.val, coord.dx, coord.dy, /*offset=*/ int2(0, 0));
 }
 
-float3 tex_lookup_deriv_float3_2d(RES_DATA_PARAM_DECL int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+float3 tex_lookup_deriv_float3_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
-    return tex_lookup_deriv_float4_2d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
+    return tex_lookup_deriv_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
 }
 
-float3 tex_lookup_deriv_color_2d(RES_DATA_PARAM_DECL int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+float3 tex_lookup_deriv_color_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
-    return tex_lookup_deriv_float4_2d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
+    return tex_lookup_deriv_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
 }
 
-float2 tex_lookup_deriv_float2_2d(RES_DATA_PARAM_DECL int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+float2 tex_lookup_deriv_float2_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
-    return tex_lookup_deriv_float4_2d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xy;
+    return tex_lookup_deriv_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xy;
 }
 
-float tex_lookup_deriv_float_2d(RES_DATA_PARAM_DECL int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+float tex_lookup_deriv_float_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
-    return tex_lookup_deriv_float4_2d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).x;
+    return tex_lookup_deriv_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).x;
 }
 
 
 // corresponds to ::tex::texel_float4(uniform texture_2d tex, float2 coord, int2 uv_tile)
-float4 tex_texel_float4_2d(
-    RES_DATA_PARAM_DECL
-    int tex,
-    int2 coord,
-    int2 uv_tile,
-    float frame)
+float4 tex_texel_float4_2d(int tex,
+                           int2 coord,
+                           int2 uv_tile,
+                           float frame)
 {
     if (tex == 0) return float4(0, 0, 0, 0); // invalid texture
 
@@ -539,31 +495,27 @@ float4 tex_texel_float4_2d(
     if (0 > coord.x || res.x <= coord.x || 0 > coord.y || res.y <= coord.y)
         return float4(0, 0, 0, 0); // out of bounds
 
-#if (TEXTURE_VERTICAL_FLIP == 1)
-    coord.y = res.y - coord.y - 1;
-#endif
-
     return mdl_textures_2d[NonUniformResourceIndex(array_index)].Load(int3(coord, /*mipmaplevel=*/ 0));
 }
 
-float3 tex_texel_float3_2d(RES_DATA_PARAM_DECL int tex, int2 coord, int2 uv_tile, float frame)
+float3 tex_texel_float3_2d(int tex, int2 coord, int2 uv_tile, float frame)
 {
-    return tex_texel_float4_2d(RES_DATA_PARAM tex, coord, uv_tile, frame).xyz;
+    return tex_texel_float4_2d(tex, coord, uv_tile, frame).xyz;
 }
 
-float3 tex_texel_color_2d(RES_DATA_PARAM_DECL int tex, int2 coord, int2 uv_tile, float frame)
+float3 tex_texel_color_2d(int tex, int2 coord, int2 uv_tile, float frame)
 {
-    return tex_texel_float3_2d(RES_DATA_PARAM tex, coord, uv_tile, frame);
+    return tex_texel_float3_2d(tex, coord, uv_tile, frame);
 }
 
-float2 tex_texel_float2_2d(RES_DATA_PARAM_DECL int tex, int2 coord, int2 uv_tile, float frame)
+float2 tex_texel_float2_2d(int tex, int2 coord, int2 uv_tile, float frame)
 {
-    return tex_texel_float4_2d(RES_DATA_PARAM tex, coord, uv_tile, frame).xy;
+    return tex_texel_float4_2d(tex, coord, uv_tile, frame).xy;
 }
 
-float tex_texel_float_2d(RES_DATA_PARAM_DECL int tex, int2 coord, int2 uv_tile, float frame)
+float tex_texel_float_2d(int tex, int2 coord, int2 uv_tile, float frame)
 {
-    return tex_texel_float4_2d(RES_DATA_PARAM tex, coord, uv_tile, frame).x;
+    return tex_texel_float4_2d(tex, coord, uv_tile, frame).x;
 }
 
 
@@ -571,7 +523,7 @@ float tex_texel_float_2d(RES_DATA_PARAM_DECL int tex, int2 coord, int2 uv_tile, 
 // Texturing functions, 3D
 // ------------------------------------------------------------------------------------------------
 
-int3 tex_res_3d(RES_DATA_PARAM_DECL int tex, float frame)
+int3 tex_res_3d(int tex, float frame)
 {
     if (tex == 0) return uint3(0, 0, 0); // invalid texture
 
@@ -587,7 +539,7 @@ int3 tex_res_3d(RES_DATA_PARAM_DECL int tex, float frame)
 }
 
 // corresponds to ::tex::first__frame(uniform texture_3d)
-int tex_first_frame_3d(RES_DATA_PARAM_DECL int tex)
+int tex_first_frame_3d(int tex)
 {
     if (tex == 0) return 0; // invalid texture
 
@@ -597,7 +549,7 @@ int tex_first_frame_3d(RES_DATA_PARAM_DECL int tex)
 }
 
 // corresponds to ::tex::last_frame(uniform texture_3d)
-int tex_last_frame_3d(RES_DATA_PARAM_DECL int tex)
+int tex_last_frame_3d(int tex)
 {
     if (tex == 0) return 0; // invalid texture
 
@@ -607,26 +559,24 @@ int tex_last_frame_3d(RES_DATA_PARAM_DECL int tex)
 }
 
 // corresponds to ::tex::width(uniform texture_3d tex, int2 uv_tile)
-int tex_width_3d(RES_DATA_PARAM_DECL int tex, float frame) { return tex_res_3d(RES_DATA_PARAM tex, frame).x; }
+int tex_width_3d(int tex, float frame) { return tex_res_3d(tex, frame).x; }
 
 // corresponds to ::tex::height(uniform texture_3d tex, int2 uv_tile)
-int tex_height_3d(RES_DATA_PARAM_DECL int tex, float frame) { return tex_res_3d(RES_DATA_PARAM tex, frame).y; }
+int tex_height_3d(int tex, float frame) { return tex_res_3d(tex, frame).y; }
 
 // corresponds to ::tex::depth(uniform texture_3d tex, int2 uv_tile)
-int tex_depth_3d(RES_DATA_PARAM_DECL int tex, float frame) { return tex_res_3d(RES_DATA_PARAM tex, frame).z; }
+int tex_depth_3d(int tex, float frame) { return tex_res_3d(tex, frame).z; }
 
 // corresponds to ::tex::lookup_float4(uniform texture_3d tex, float2 coord, ...)
-float4 tex_lookup_float4_3d(
-    RES_DATA_PARAM_DECL
-    int tex,
-    float3 coord,
-    int wrap_u,
-    int wrap_v,
-    int wrap_w,
-    float2 crop_u,
-    float2 crop_v,
-    float2 crop_w,
-    float frame)
+float4 tex_lookup_float4_3d(int tex,
+                            float3 coord,
+                            int wrap_u,
+                            int wrap_v,
+                            int wrap_w,
+                            float2 crop_u,
+                            float2 crop_v,
+                            float2 crop_w,
+                            float frame)
 {
     if (tex == 0) return float4(0, 0, 0, 0); // invalid texture
 
@@ -649,10 +599,6 @@ float4 tex_lookup_float4_3d(
     coord.y = apply_wrap_and_crop(coord.y, wrap_v, crop_v, height);
     coord.z = apply_wrap_and_crop(coord.z, wrap_w, crop_w, depth);
 
-#if (TEXTURE_VERTICAL_FLIP == 1)
-    coord.y = 1.0 - coord.y;
-#endif
-
     // Note, since we don't have ddx and ddy in the compute pipeline, TextureObject::Sample() is not
     // available, we use SampleLevel instead and go for the most detailed level. Therefore, we don't
     // need mipmaps. Manual mip level computation is possible though.
@@ -660,32 +606,28 @@ float4 tex_lookup_float4_3d(
         mdl_sampler_tex, coord, /*lod=*/ 0.0f, /*offset=*/ int3(0, 0, 0));
 }
 
-float3 tex_lookup_float3_3d(RES_DATA_PARAM_DECL int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w,float2 crop_u, float2 crop_v, float2 crop_w, float frame)
+float3 tex_lookup_float3_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w,float2 crop_u, float2 crop_v, float2 crop_w, float frame)
 {
-    return tex_lookup_float4_3d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xyz;
+    return tex_lookup_float4_3d(tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xyz;
 }
 
-float3 tex_lookup_color_3d(RES_DATA_PARAM_DECL int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
+float3 tex_lookup_color_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
 {
-    return tex_lookup_float4_3d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xyz;
+    return tex_lookup_float4_3d(tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xyz;
 }
 
-float2 tex_lookup_float2_3d(RES_DATA_PARAM_DECL int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
+float2 tex_lookup_float2_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
 {
-    return tex_lookup_float4_3d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xy;
+    return tex_lookup_float4_3d(tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xy;
 }
 
-float tex_lookup_float_3d(RES_DATA_PARAM_DECL int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
+float tex_lookup_float_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
 {
-    return tex_lookup_float4_3d(RES_DATA_PARAM tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).x;
+    return tex_lookup_float4_3d(tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).x;
 }
 
 // corresponds to ::tex::texel_float4(uniform texture_3d tex, float3 coord)
-float4 tex_texel_float4_3d(
-    RES_DATA_PARAM_DECL
-    int tex,
-    int3 coord,
-    float frame)
+float4 tex_texel_float4_3d(int tex, int3 coord, float frame)
 {
     if (tex == 0) return float4(0, 0, 0, 0); // invalid texture
 
@@ -700,31 +642,27 @@ float4 tex_texel_float4_3d(
     if (0 > coord.x || res.x <= coord.x || 0 > coord.y || res.y <= coord.y || 0 > coord.z || res.z <= coord.z)
         return float4(0, 0, 0, 0); // out of bounds
 
-#if (TEXTURE_VERTICAL_FLIP == 1)
-    coord.y = res.y - coord.y - 1;
-#endif
-
     return mdl_textures_3d[NonUniformResourceIndex(array_index)].Load(int4(coord, /*mipmaplevel=*/ 0));
 }
 
-float3 tex_texel_float3_3d(RES_DATA_PARAM_DECL int tex, int3 coord, float frame)
+float3 tex_texel_float3_3d(int tex, int3 coord, float frame)
 {
-    return tex_texel_float4_3d(RES_DATA_PARAM tex, coord, frame).xyz;
+    return tex_texel_float4_3d(tex, coord, frame).xyz;
 }
 
-float3 tex_texel_color_3d(RES_DATA_PARAM_DECL int tex, int3 coord, float frame)
+float3 tex_texel_color_3d(int tex, int3 coord, float frame)
 {
-    return tex_texel_float3_3d(RES_DATA_PARAM tex, coord, frame);
+    return tex_texel_float3_3d(tex, coord, frame);
 }
 
-float2 tex_texel_float2_3d(RES_DATA_PARAM_DECL int tex, int3 coord, float frame)
+float2 tex_texel_float2_3d(int tex, int3 coord, float frame)
 {
-    return tex_texel_float4_3d(RES_DATA_PARAM tex, coord, frame).xy;
+    return tex_texel_float4_3d(tex, coord, frame).xy;
 }
 
-float tex_texel_float_3d(RES_DATA_PARAM_DECL int tex, int3 coord, float frame)
+float tex_texel_float_3d(int tex, int3 coord, float frame)
 {
-    return tex_texel_float4_3d(RES_DATA_PARAM tex, coord, frame).x;
+    return tex_texel_float4_3d(tex, coord, frame).x;
 }
 
 
@@ -732,57 +670,57 @@ float tex_texel_float_3d(RES_DATA_PARAM_DECL int tex, int3 coord, float frame)
 // Texturing functions, Cube (not supported by this example)
 // ------------------------------------------------------------------------------------------------
 
-int tex_width_cube(RES_DATA_PARAM_DECL int tex) { return 0; }
-int tex_height_cube(RES_DATA_PARAM_DECL int tex) { return 0; }
+int tex_width_cube(int tex) { return 0; }
+int tex_height_cube(int tex) { return 0; }
 
-float4 tex_lookup_float4_cube(RES_DATA_PARAM_DECL int tex, float3 coord)
+float4 tex_lookup_float4_cube(int tex, float3 coord)
 {
     return float4(0, 0, 0, 0);
 }
 
-float3 tex_lookup_float3_cube(RES_DATA_PARAM_DECL int tex, float3 coord)
+float3 tex_lookup_float3_cube(int tex, float3 coord)
 {
-    return tex_lookup_float4_cube(RES_DATA_PARAM tex, coord).xyz;
+    return tex_lookup_float4_cube(tex, coord).xyz;
 }
 
-float3 tex_lookup_color_cube(RES_DATA_PARAM_DECL int tex, float3 coord)
+float3 tex_lookup_color_cube(int tex, float3 coord)
 {
-    return tex_lookup_float4_cube(RES_DATA_PARAM tex, coord).xyz;
+    return tex_lookup_float4_cube(tex, coord).xyz;
 }
 
-float2 tex_lookup_float2_cube(RES_DATA_PARAM_DECL int tex, float3 coord)
+float2 tex_lookup_float2_cube(int tex, float3 coord)
 {
-    return tex_lookup_float4_cube(RES_DATA_PARAM tex, coord).xy;
+    return tex_lookup_float4_cube(tex, coord).xy;
 }
 
-float tex_lookup_float_cube(RES_DATA_PARAM_DECL int tex, float3 coord)
+float tex_lookup_float_cube(int tex, float3 coord)
 {
-    return tex_lookup_float4_cube(RES_DATA_PARAM tex, coord).x;
+    return tex_lookup_float4_cube(tex, coord).x;
 }
 
-float4 tex_texel_float4_cube(RES_DATA_PARAM_DECL int tex, int3 coord)
+float4 tex_texel_float4_cube(int tex, int3 coord)
 {
     return float4(0, 0, 0, 0);
 }
 
-float3 tex_texel_float3_cube(RES_DATA_PARAM_DECL int tex, int3 coord)
+float3 tex_texel_float3_cube(int tex, int3 coord)
 {
-    return tex_texel_float4_cube(RES_DATA_PARAM tex, coord).xyz;
+    return tex_texel_float4_cube(tex, coord).xyz;
 }
 
-float3 tex_texel_color_cube(RES_DATA_PARAM_DECL int tex, int3 coord)
+float3 tex_texel_color_cube(int tex, int3 coord)
 {
-    return tex_texel_float4_cube(RES_DATA_PARAM tex, coord).xyz;
+    return tex_texel_float4_cube(tex, coord).xyz;
 }
 
-float2 tex_texel_float2_cube(RES_DATA_PARAM_DECL int tex, int3 coord)
+float2 tex_texel_float2_cube(int tex, int3 coord)
 {
-    return tex_texel_float4_cube(RES_DATA_PARAM tex, coord).xy;
+    return tex_texel_float4_cube(tex, coord).xy;
 }
 
-float tex_texel_float_cube(RES_DATA_PARAM_DECL int tex, int3 coord)
+float tex_texel_float_cube(int tex, int3 coord)
 {
-    return tex_texel_float4_cube(RES_DATA_PARAM tex, coord).x;
+    return tex_texel_float4_cube(tex, coord).x;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -790,29 +728,29 @@ float tex_texel_float_cube(RES_DATA_PARAM_DECL int tex, int3 coord)
 // ------------------------------------------------------------------------------------------------
 
 
-float4 tex_lookup_float4_ptex(RES_DATA_PARAM_DECL int tex, int channel)
+float4 tex_lookup_float4_ptex(int tex, int channel)
 {
     return float4(0, 0, 0, 0);
 }
 
-float3 tex_lookup_float3_ptex(RES_DATA_PARAM_DECL int tex, int channel)
+float3 tex_lookup_float3_ptex(int tex, int channel)
 {
-    return tex_lookup_float4_ptex(RES_DATA_PARAM tex, channel).xyz;
+    return tex_lookup_float4_ptex(tex, channel).xyz;
 }
 
-float3 tex_lookup_color_ptex(RES_DATA_PARAM_DECL int tex, int channel)
+float3 tex_lookup_color_ptex(int tex, int channel)
 {
-    return tex_lookup_float3_ptex(RES_DATA_PARAM tex, channel);
+    return tex_lookup_float3_ptex(tex, channel);
 }
 
-float2 tex_lookup_float2_ptex(RES_DATA_PARAM_DECL int tex, int channel)
+float2 tex_lookup_float2_ptex(int tex, int channel)
 {
-    return tex_lookup_float4_ptex(RES_DATA_PARAM tex, channel).xy;
+    return tex_lookup_float4_ptex(tex, channel).xy;
 }
 
-float tex_lookup_float_ptex(RES_DATA_PARAM_DECL int tex, int channel)
+float tex_lookup_float_ptex(int tex, int channel)
 {
-    return tex_lookup_float4_ptex(RES_DATA_PARAM tex, channel).x;
+    return tex_lookup_float4_ptex(tex, channel).x;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -836,13 +774,13 @@ uint sample_cdf(StructuredBuffer<float> cdf, uint cdf_offset, uint cdf_size, flo
     return m;
 }
 
-bool df_light_profile_isvalid(RES_DATA_PARAM_DECL int lp_idx)
+bool df_light_profile_isvalid(int lp_idx)
 {
     // assuming that there is no indexing out of bounds of the light_profile_infos and the view arrays
     return lp_idx != 0; // 0 is the invalid light profile
 }
 
-float df_light_profile_power(RES_DATA_PARAM_DECL int lp_idx)
+float df_light_profile_power(int lp_idx)
 {
     if (lp_idx == 0) return 0; // invalid light profile
 
@@ -850,7 +788,7 @@ float df_light_profile_power(RES_DATA_PARAM_DECL int lp_idx)
     return lp.total_power;
 }
 
-float df_light_profile_maximum(RES_DATA_PARAM_DECL int lp_idx)
+float df_light_profile_maximum(int lp_idx)
 {
     if (lp_idx == 0) return 0; // invalid light profile
 
@@ -858,10 +796,7 @@ float df_light_profile_maximum(RES_DATA_PARAM_DECL int lp_idx)
     return lp.candela_multiplier;
 }
 
-float df_light_profile_evaluate(
-    RES_DATA_PARAM_DECL
-    int   lp_idx,
-    float2 theta_phi)
+float df_light_profile_evaluate(int lp_idx, float2 theta_phi)
 {
     if (lp_idx == 0) return 0; // invalid light profile
 
@@ -894,10 +829,7 @@ float df_light_profile_evaluate(
     return value * lp.candela_multiplier;
 }
 
-float3 df_light_profile_sample(
-    RES_DATA_PARAM_DECL
-    int   lp_idx,
-    float3 xi)
+float3 df_light_profile_sample(int lp_idx, float3 xi)
 {
     float3 result = float3(
         -1.0, // negative theta (x value) means no emission
@@ -967,10 +899,7 @@ float3 df_light_profile_sample(
     return result;
 }
 
-float df_light_profile_pdf(
-    RES_DATA_PARAM_DECL
-    int   lp_idx,
-    float2 theta_phi)
+float df_light_profile_pdf(int lp_idx, float2 theta_phi)
 {
     if (lp_idx == 0) return 0; // invalid light profile
 
@@ -1040,13 +969,13 @@ float3 bsdf_compute_uvw(float2 theta_phi_in, float2 theta_phi_out)
     return float3(u, v, w);
 }
 
-bool df_bsdf_measurement_isvalid(RES_DATA_PARAM_DECL int bm_idx)
+bool df_bsdf_measurement_isvalid(int bm_idx)
 {
     // assuming that there is no indexing out of bounds of the mbsdf_infos and the view arrays
     return bm_idx != 0; // 0 is the invalid bsdf measurement
 }
 
-int3 df_bsdf_measurement_resolution(RES_DATA_PARAM_DECL int bm_idx, int part)
+int3 df_bsdf_measurement_resolution(int bm_idx, int part)
 {
     if (bm_idx == 0) return int3(0, 0, 0); // invalid bsdf measurement
     
@@ -1060,12 +989,10 @@ int3 df_bsdf_measurement_resolution(RES_DATA_PARAM_DECL int bm_idx, int part)
         bm.num_channels[part]);
 }
 
-float3 df_bsdf_measurement_evaluate(
-    RES_DATA_PARAM_DECL
-    int   bm_idx,
-    float2 theta_phi_in,
-    float2 theta_phi_out,
-    int    part)
+float3 df_bsdf_measurement_evaluate(int bm_idx,
+                                    float2 theta_phi_in,
+                                    float2 theta_phi_out,
+                                    int part)
 {
     if (bm_idx == 0) return float3(0, 0, 0); // invalid bsdf measurement
 
@@ -1082,12 +1009,10 @@ float3 df_bsdf_measurement_evaluate(
 }
 
 // output: theta, phi, pdf
-float3 df_bsdf_measurement_sample(
-    RES_DATA_PARAM_DECL
-    int   bm_idx,
-    float2 theta_phi_out,
-    float3 xi,
-    int    part)
+float3 df_bsdf_measurement_sample(int bm_idx,
+                                  float2 theta_phi_out,
+                                  float3 xi,
+                                  int part)
 {
     float3 result = float3(
         -1.0, // negative theta (x value) means absorption
@@ -1170,12 +1095,10 @@ float3 df_bsdf_measurement_sample(
     return result;
 }
 
-float df_bsdf_measurement_pdf(
-    RES_DATA_PARAM_DECL
-    int   bm_idx,
-    float2 theta_phi_in,
-    float2 theta_phi_out,
-    int    part)
+float df_bsdf_measurement_pdf(int bm_idx,
+                              float2 theta_phi_in,
+                              float2 theta_phi_out,
+                              int part)
 {
     if (bm_idx == 0) return 0.0; // invalid measured bsdf
 
@@ -1221,7 +1144,7 @@ float df_bsdf_measurement_pdf(
 }
 
 // output: max (in case of color) albedo for the selected direction (x) and global (y)
-float2 df_bsdf_measurement_albedo(RES_DATA_PARAM_DECL int bm_idx, float2 theta_phi, int part)
+float2 df_bsdf_measurement_albedo(int bm_idx, float2 theta_phi, int part)
 {
     const Mdl_mbsdf_info bm = mdl_mbsdf_infos[bm_idx - 1]; // assuming this is in bounds
 
@@ -1238,7 +1161,7 @@ float2 df_bsdf_measurement_albedo(RES_DATA_PARAM_DECL int bm_idx, float2 theta_p
     return float2(albedo_data[idx_theta], bm.max_albedo[part]);
 }
 
-float4 df_bsdf_measurement_albedos(RES_DATA_PARAM_DECL int bm_idx, float2 theta_phi)
+float4 df_bsdf_measurement_albedos(int bm_idx, float2 theta_phi)
 {
     if (bm_idx == 0) return float4(0, 0, 0, 0); // invalid bsdf measurement
 
