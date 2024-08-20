@@ -73,11 +73,7 @@ struct Shading_state_material
 
     /// The result of state::position().
     /// It represents the position where the material should be evaluated.
-#if defined(USE_DERIVS)
     Derived_float3    position;
-#else
-    float3            position;
-#endif
 
     /// The result of state::animation_time().
     /// It represents the time of the current sample in seconds.
@@ -86,11 +82,7 @@ struct Shading_state_material
     /// An array containing the results of state::texture_coordinate(i).
     /// The i-th entry represents the texture coordinates of the i-th texture space at the
     /// current position.
-#if defined(USE_DERIVS)
     Derived_float3    text_coords[1];
-#else
-    float3            text_coords[1];
-#endif
 
     /// An array containing the results of state::texture_tangent_u(i).
     /// The i-th entry represents the texture tangent vector of the i-th texture space at the

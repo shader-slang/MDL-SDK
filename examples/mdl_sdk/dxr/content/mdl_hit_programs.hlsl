@@ -26,34 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#if !defined(TARGET_CODE_ID)
-    #define TARGET_CODE_ID 0
-#endif
-
-// macros to append the target code ID to the function name.
-// this is required because the resulting DXIL libraries will be linked to same pipeline object
-// and for that, the entry point names have to be unique.
-#define export_name_impl(name, id) name ## _ ## id
-#define export_name_impl_2(name, id) export_name_impl(name, id)
-#define export_name(name) export_name_impl_2(name, TARGET_CODE_ID)
-
-#define MDL_RADIANCE_ANY_HIT_PROGRAM        export_name(MdlRadianceAnyHitProgram)
-#define MDL_RADIANCE_CLOSEST_HIT_PROGRAM    export_name(MdlRadianceClosestHitProgram)
-#define MDL_SHADOW_ANY_HIT_PROGRAM          export_name(MdlShadowAnyHitProgram)
-
-#if defined(WITH_ENUM_SUPPORT)
-    enum MaterialFlags
-    {
-        MATERIAL_FLAG_NONE          = 0,
-        MATERIAL_FLAG_OPAQUE        = 1 << 0, // allows to skip opacity evaluation
-        MATERIAL_FLAG_SINGLE_SIDED  = 1 << 1  // geometry is only visible from the front side
-    };
-#else
-    #define MaterialFlags uint
-    #define MATERIAL_FLAG_NONE          0
-    #define MATERIAL_FLAG_OPAQUE        (1 << 0)
-    #define MATERIAL_FLAG_SINGLE_SIDED  (1 << 1)
-#endif
+enum MaterialFlags
+{
+	MATERIAL_FLAG_NONE          = 0,
+	MATERIAL_FLAG_OPAQUE        = 1 << 0, // allows to skip opacity evaluation
+	MATERIAL_FLAG_SINGLE_SIDED  = 1 << 1  // geometry is only visible from the front side
+};
 
 // ------------------------------------------------------------------------------------------------
 // defined in the global root signature
@@ -114,11 +92,8 @@ float3 sample_lights(Shading_state_material state, out float3 to_light, out floa
             light_pdf = DIRAC; // infinity
 
             // compute light direction and distance
-            #if defined(USE_DERIVS)
-                to_light = point_light_position - state.position.val;
-            #else
-                to_light = point_light_position - state.position;
-            #endif
+			to_light = point_light_position - state.position.val;
+
             const float inv_distance2 = 1.0f / dot(to_light, to_light);
             to_light *= sqrt(inv_distance2);
 
@@ -182,18 +157,14 @@ bool is_back_face()
     return dot(geom_normal, ObjectRayDirection()) > 0.0f;
 }
 
-void setup_mdl_shading_state(
-    out Shading_state_material mdl_state,
-    Attributes attrib)
+void setup_mdl_shading_state(out Shading_state_material mdl_state, Attributes attrib)
 {
     // get vertex indices for the hit triangle
     const uint index_offset = 3 * PrimitiveIndex() + geometry_index_offset;
-    const uint3 vertex_indices = uint3(
-        indices[index_offset + 0], indices[index_offset + 1], indices[index_offset + 2]);
+    const uint3 vertex_indices = uint3(indices[index_offset + 0], indices[index_offset + 1], indices[index_offset + 2]);
 
     // coordinates inside the triangle
-    const float3 barycentric = float3(
-        1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
+    const float3 barycentric = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
 
     // mesh transformations
     const float4x4 object_to_world = to4x4(ObjectToWorld());
@@ -246,21 +217,13 @@ void setup_mdl_shading_state(
     // fill the actual state fields used by MD
     mdl_state.normal = world_normal;
     mdl_state.geom_normal = world_geom_normal;
-    #if defined(USE_DERIVS)
-        // currently not supported
-        mdl_state.position.val = hit_position;
-        mdl_state.position.dx = float3(0, 0, 0);
-        mdl_state.position.dy = float3(0, 0, 0);
-    #else
-        mdl_state.position = hit_position;
-    #endif
+	// currently not supported
+	mdl_state.position.val = hit_position;
+	mdl_state.position.dx = float3(0, 0, 0);
+	mdl_state.position.dy = float3(0, 0, 0);
     mdl_state.animation_time = enable_animiation ? total_time : 0.0f;
     mdl_state.tangent_u[0] = world_tangent;
     mdl_state.tangent_v[0] = world_binormal;
-    // #if defined(USE_TEXTURE_RESULTS)
-    // filling the buffer with zeros not required
-    //     mdl_state.text_results = (float4[MDL_NUM_TEXTURE_RESULTS]) 0;
-    // #endif
     mdl_state.ro_data_segment_offset = 0;
     mdl_state.world_to_object = world_to_object;
     mdl_state.object_to_world = object_to_world;
@@ -284,22 +247,14 @@ void setup_mdl_shading_state(
     // apply uv transformations
     texcoord0 = texcoord0 * uv_scale + uv_offset;
     if (uv_repeat != 0)
-    {
         texcoord0 = texcoord0 - floor(texcoord0);
-    }
     if (uv_saturate != 0)
-    {
         texcoord0 = saturate(texcoord0);
-    }
 
-    #if defined(USE_DERIVS)
-        // would make sense in a rasterizer. for a ray tracers this is not straight forward
-        mdl_state.text_coords[0].val = float3(texcoord0, 0);
-        mdl_state.text_coords[0].dx = float3(0, 0, 0); // float3(ddx(texcoord0), 0);
-        mdl_state.text_coords[0].dy = float3(0, 0, 0); // float3(ddy(texcoord0), 0);
-    #else
-        mdl_state.text_coords[0] = float3(texcoord0, 0);
-    #endif
+	// would make sense in a rasterizer. for a ray tracers this is not straight forward
+	mdl_state.text_coords[0].val = float3(texcoord0, 0);
+	mdl_state.text_coords[0].dx = float3(0, 0, 0);
+	mdl_state.text_coords[0].dy = float3(0, 0, 0);
 }
 
 
@@ -307,37 +262,8 @@ void setup_mdl_shading_state(
 // MDL hit group shader
 // ------------------------------------------------------------------------------------------------
 
-[shader("anyhit")]
-void MDL_RADIANCE_ANY_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes attrib)
-{
-    // back face culling
-    if (has_flag(material_flags, MATERIAL_FLAG_SINGLE_SIDED)) {
-        if (is_back_face()) {
-            IgnoreHit();
-            return;
-        }
-    }
-
-    // early out if there is no opacity function
-    if (has_flag(material_flags, MATERIAL_FLAG_OPAQUE))
-        return;
-
-    // setup MDL state
-    Shading_state_material mdl_state;
-    setup_mdl_shading_state(mdl_state, attrib);
-
-    // evaluate the cutout opacity
-    const float opacity = mdl_standalone_geometry_cutout_opacity(mdl_state);
-
-    // do alpha blending the stochastically way
-    if (rnd(payload.seed) < opacity)
-        return;
-
-    IgnoreHit();
-}
-
 [shader("closesthit")]
-void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes attrib)
+void MdlRadianceClosestHitProgram(inout RadianceHitInfo payload, Attributes attrib)
 {
     // setup MDL state
     Shading_state_material mdl_state;
@@ -423,20 +349,12 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
         {
             toggle_flag(payload.flags, FLAG_INSIDE);
             // continue on the opposite side
-            #if defined(USE_DERIVS)
-                payload.ray_origin_next = offset_ray(mdl_state.position.val, -mdl_state.geom_normal);
-            #else
-                payload.ray_origin_next = offset_ray(mdl_state.position, -mdl_state.geom_normal);
-            #endif
+			payload.ray_origin_next = offset_ray(mdl_state.position.val, -mdl_state.geom_normal);
         }
         else
         {
             // continue on the current side
-            #if defined(USE_DERIVS)
-                payload.ray_origin_next = offset_ray(mdl_state.position.val, mdl_state.geom_normal);
-            #else
-                payload.ray_origin_next = offset_ray(mdl_state.position, mdl_state.geom_normal);
-            #endif
+			payload.ray_origin_next = offset_ray(mdl_state.position.val, mdl_state.geom_normal);
         }
 
         if ((sample_data.event_type & BSDF_EVENT_SPECULAR) != 0)
@@ -450,11 +368,7 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
 
     // cast a shadow ray; assuming light is always outside
     RayDesc ray;
-    #if defined(USE_DERIVS)
-        ray.Origin = offset_ray(mdl_state.position.val, mdl_state.geom_normal * (inside ? -1.0f : 1.0f));
-    #else
-        ray.Origin = offset_ray(mdl_state.position, mdl_state.geom_normal * (inside ? -1.0f : 1.0f));
-    #endif
+	ray.Origin = offset_ray(mdl_state.position.val, mdl_state.geom_normal * (inside ? -1.0f : 1.0f));
     ray.Direction = to_light;
     ray.TMin = 0.0f;
     ray.TMax = far_plane_distance;
@@ -480,12 +394,41 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
         payload.contribution += contribution;
 }
 
+[shader("anyhit")]
+void MdlRadianceAnyHitProgram(inout RadianceHitInfo payload, Attributes attrib)
+{
+    // back face culling
+    if (has_flag(material_flags, MATERIAL_FLAG_SINGLE_SIDED)) {
+        if (is_back_face()) {
+            IgnoreHit();
+            return;
+        }
+    }
+
+    // early out if there is no opacity function
+    if (has_flag(material_flags, MATERIAL_FLAG_OPAQUE))
+        return;
+
+    // setup MDL state
+    Shading_state_material mdl_state;
+    setup_mdl_shading_state(mdl_state, attrib);
+
+    // evaluate the cutout opacity
+    const float opacity = mdl_standalone_geometry_cutout_opacity(mdl_state);
+
+    // do alpha blending the stochastically way
+    if (rnd(payload.seed) < opacity)
+        return;
+
+    IgnoreHit();
+}
+
 // ------------------------------------------------------------------------------------------------
 // MDL shadow group shader
 // ------------------------------------------------------------------------------------------------
 
 [shader("anyhit")]
-void MDL_SHADOW_ANY_HIT_PROGRAM(inout ShadowHitInfo payload, Attributes attrib)
+void MdlShadowAnyHitProgram(inout ShadowHitInfo payload, Attributes attrib)
 {
     // back face culling
     if (has_flag(material_flags, MATERIAL_FLAG_SINGLE_SIDED)) {

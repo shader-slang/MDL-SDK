@@ -236,9 +236,9 @@ Mdl_material_target::Mdl_material_target(
     }
 
     // will be used in the shaders and when setting up the rt pipeline
-    m_radiance_closest_hit_name = "MdlRadianceClosestHitProgram_" + get_shader_name_suffix();
-    m_radiance_any_hit_name = "MdlRadianceAnyHitProgram_" + get_shader_name_suffix();
-    m_shadow_any_hit_name = "MdlShadowAnyHitProgram_" + get_shader_name_suffix();
+    m_radiance_closest_hit_name = "MdlRadianceClosestHitProgram";
+    m_radiance_any_hit_name = "MdlRadianceAnyHitProgram";
+    m_shadow_any_hit_name = "MdlShadowAnyHitProgram";
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -841,9 +841,6 @@ bool Mdl_material_target::generate()
         std::to_string(m_app->get_options()->texture_results_cache_size) + "\n";
 
     m_hlsl_source_code += "\n";
-
-    // TODO: enable automatic derivatives, disable auxiliary
-    if (m_app->get_options()->automatic_derivatives) m_hlsl_source_code += "#define USE_DERIVS\n";
 
     // since scene data access is more expensive than direct vertex data access and since
     // texture coordinates are extremely common, MDL typically fetches those from the state.

@@ -226,7 +226,8 @@ namespace mi { namespace examples { namespace mdl_d3d12
         /// Get the shader suffix for this target to create unique hit groups names.
         /// is not enabled.
         const std::string get_shader_name_suffix() const {
-            return m_compiled_material_hash;
+            return "";
+            //return m_compiled_material_hash;
         }
 
     private:

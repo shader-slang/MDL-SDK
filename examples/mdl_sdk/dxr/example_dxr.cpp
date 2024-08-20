@@ -996,21 +996,24 @@ bool Example_dxr::update_rendering_pipeline()
 
             // Create and add hit groups to the pipeline.
             // this one will handle the shading of objects with MDL materials
-            std::string target_code_id = "_" + target->get_shader_name_suffix();
             if (!pipeline->add_hitgroup(
-                "MdlRadianceHitGroup" + target_code_id,
+                "MdlRadianceHitGroup",
                 target->get_entrypoint_radiance_closest_hit_name(),
                 target->get_entrypoint_radiance_any_hit_name(),
-                ""))
+                "")) {
+                log_error("FAILED TO LOAD RADIANCE HIT GROUP");
                 return false;
+            }
 
             // .. this one will deal with shadows cast by objects with MDL materials
             if (!pipeline->add_hitgroup(
-                "MdlShadowHitGroup" + target_code_id,
+                "MdlShadowHitGroup",
                 "",
                 target->get_entrypoint_shadow_any_hit_name(),
-                ""))
+                "")) {
+                log_error("FAILED TO LOAD RADIANCE HIT GROUP");
                 return false;
+            }
 
             return true; // continue visits
         })) return after_cleanup();
@@ -1107,16 +1110,16 @@ bool Example_dxr::update_rendering_pipeline()
             if (!signature->finalize()) return false;
 
             if (!pipeline->add_signature_association(signature, true,
-                {"MdlRadianceHitGroup" + target_code_id,
-                "MdlRadianceAnyHitProgram" + target_code_id,
-                "MdlRadianceClosestHitProgram" + target_code_id})) return false;
+                {"MdlRadianceHitGroup",
+                "MdlRadianceAnyHitProgram",
+                "MdlRadianceClosestHitProgram"})) return false;
 
             // since the shadow hit also needs access to the MDL material, at least the
             // 'geometry.cutout_opacity' expression, we simply use the same signature.
             // Without alpha blending or cutout support, an empty signature would be sufficient.
             if (!pipeline->add_signature_association(signature, false /*owned by group above*/,
-                {"MdlShadowHitGroup" + target_code_id,
-                "MdlShadowAnyHitProgram" + target_code_id})) return false;
+                {"MdlShadowHitGroup",
+                "MdlShadowAnyHitProgram"})) return false;
 
             return true; // continue visits
         })) return after_cleanup();
@@ -1164,15 +1167,14 @@ bool Example_dxr::update_rendering_pipeline()
                 return true;
 
             std::string hash = target->get_compiled_material_hash();
-            std::string suffix = "_" + hash;
 
             radiance_hit_handles.insert({ hash, binding_table->add_hit_group(
                 static_cast<size_t>(Ray_type::Radiance),
-                "MdlRadianceHitGroup" + suffix) });
+                "MdlRadianceHitGroup") });
 
             shadow_hit_handles.insert({ hash, binding_table->add_hit_group(
                 static_cast<size_t>(Ray_type::Shadow),
-                "MdlShadowHitGroup" + suffix) });
+                "MdlShadowHitGroup") });
 
             return true; // continue visit
         });
