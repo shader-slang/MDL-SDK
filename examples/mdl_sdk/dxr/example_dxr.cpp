@@ -1781,5 +1781,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int nCmdSh
     // free logs
     mi::examples::mdl_d3d12::flush_loggers();
     mi::examples::mdl_d3d12::log_set_file_path(nullptr);
+
     return return_code;
 }

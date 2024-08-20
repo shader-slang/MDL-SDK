@@ -1,0 +1,37 @@
+/******************************************************************************
+ * Copyright 2024 NVIDIA Corporation. All rights reserved.
+ ******************************************************************************/
+
+mdl 1.7;
+
+import ::df::*;
+
+export material Diffuse(
+    color tint = color(1.0)
+) 
+= material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(tint: tint, roughness: 0.0)));
+
+export material Black() = material();
+
+export material Thinfilm(
+    float coat_thickness = 0.5,
+    color coat_ior = color(0.3),
+    color ior = color(0.2),
+    color extinction_coef = color(0.25),
+    color tint = color(1.0)
+)
+= material(
+    surface: material_surface(
+        scattering: df::thin_film(
+            coat_thickness,
+            coat_ior,
+            df::fresnel_factor(
+                ior,
+                extinction_coef,
+                df::diffuse_reflection_bsdf(tint: tint, roughness: 0.0)
+            )
+        )
+    )
+);

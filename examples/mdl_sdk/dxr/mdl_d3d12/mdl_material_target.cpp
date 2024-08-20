@@ -936,29 +936,6 @@ bool Mdl_material_target::generate()
     // generate the actual shader code with the help of some snippets
     m_hlsl_source_code.clear();
 
-    // all the following defines could be passed to the compiler as argument as well 
-    // but for reading the HLSL code we choose to add them in source
-
-    // per target data
-    m_hlsl_source_code += "#define MDL_TARGET_REGISTER_SPACE space2\n";
-    m_hlsl_source_code += "#define MDL_TARGET_RO_DATA_SEGMENT_SLOT t0\n";
-    m_hlsl_source_code += "\n";
-
-    // per material data
-    m_hlsl_source_code += "#define MDL_MATERIAL_REGISTER_SPACE space3\n"; // there are more
-    m_hlsl_source_code += "#define MDL_MATERIAL_ARGUMENT_BLOCK_SLOT t1\n";
-    m_hlsl_source_code += "#define MDL_MATERIAL_TEXTURE_INFO_SLOT t2\n";
-    m_hlsl_source_code += "#define MDL_MATERIAL_LIGHT_PROFILE_INFO_SLOT t3\n";
-    m_hlsl_source_code += "#define MDL_MATERIAL_MBSDF_INFO_SLOT t4\n";
-    m_hlsl_source_code += "\n";
-    m_hlsl_source_code += "#define MDL_MATERIAL_TEXTURE_2D_REGISTER_SPACE space4\n";
-    m_hlsl_source_code += "#define MDL_MATERIAL_TEXTURE_3D_REGISTER_SPACE space5\n";
-    m_hlsl_source_code += "#define MDL_MATERIAL_TEXTURE_SLOT_BEGIN t0\n";
-    m_hlsl_source_code += "\n";
-    m_hlsl_source_code += "#define MDL_MATERIAL_BUFFER_REGISTER_SPACE space6\n";
-    m_hlsl_source_code += "#define MDL_MATERIAL_BUFFER_SLOT_BEGIN t0\n";
-    m_hlsl_source_code += "\n";
-
     // depending on the functions selected for code generation
     m_hlsl_source_code += interface_data.has_init
         ? "#define MDL_HAS_INIT 1\n"
@@ -983,17 +960,14 @@ bool Mdl_material_target::generate()
         : "#define MDL_CAN_BE_THIN_WALLED 0\n";
     m_hlsl_source_code += "\n";
 
-    // global data
-    m_hlsl_source_code += "#define MDL_TEXTURE_SAMPLER_SLOT s0\n";
-    m_hlsl_source_code += "#define MDL_LIGHT_PROFILE_SAMPLER_SLOT s1\n";
-    m_hlsl_source_code += "#define MDL_MBSDF_SAMPLER_SLOT s2\n";
-    m_hlsl_source_code += "#define MDL_LATLONGMAP_SAMPLER_SLOT s3\n";
+    // TODO: force use 32 texture results...
     m_hlsl_source_code += "#define MDL_NUM_TEXTURE_RESULTS " +
         std::to_string(m_app->get_options()->texture_results_cache_size) + "\n";
 
     m_hlsl_source_code += "\n";
+
+    // TODO: enable automatic derivatives, disable auxiliary
     if (m_app->get_options()->automatic_derivatives) m_hlsl_source_code += "#define USE_DERIVS\n";
-    if (m_app->get_options()->enable_auxiliary) m_hlsl_source_code += "#define ENABLE_AUXILIARY\n";
     m_hlsl_source_code += "#define MDL_DF_HANDLE_SLOT_MODE -1\n";
 
     // since scene data access is more expensive than direct vertex data access and since
@@ -1015,16 +989,14 @@ bool Mdl_material_target::generate()
     m_hlsl_source_code += "\n\n#include \"content/mdl_hit_programs.hlsl\"\n\n";
 
     // write to file for debugging purpose
-#if 0
     std::ofstream file_stream;
-    file_stream.open(
-        mi::examples::io::get_executable_folder() + "/link_unit_code_" + get_shader_name_suffix() + ".hlsl");
+    file_stream.open(mi::examples::io::get_executable_folder() + "/link_unit_code.hlsl");
     if (file_stream)
     {
         file_stream << m_hlsl_source_code.c_str();
         file_stream.close();
     }
-#endif
+
     command_queue->execute_command_list(command_list);
 
     m_generation_required = false;

@@ -59,16 +59,6 @@
 // defined in the global root signature
 // ------------------------------------------------------------------------------------------------
 
-// for some post processing effects or for AI denoising, auxiliary outputs are required.
-// from the MDL material perspective albedo (approximation) and normals can be generated.
-#if defined(ENABLE_AUXILIARY)
-    // in order to limit the payload size, this data is written directly from the hit programs
-    RWTexture2D<float4> AlbedoDiffuseBuffer : register(u2, space0);
-    RWTexture2D<float4> AlbedoGlossyBuffer : register(u3, space0);
-    RWTexture2D<float4> NormalBuffer : register(u4, space0);
-    RWTexture2D<float4> RoughnessBuffer : register(u5, space0);
-#endif
-
 // Ray tracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space0);
 
@@ -90,7 +80,7 @@ cbuffer _Geometry_constants_1 : register(b3, space0) { uint geometry_vertex_stri
 cbuffer _Geometry_constants_2 : register(b4, space0) { uint geometry_index_offset; }
 cbuffer _Geometry_constants_3 : register(b5, space0) { uint geometry_scene_data_info_offset; }
 
-cbuffer Material_constants : register(b0, MDL_MATERIAL_REGISTER_SPACE)
+cbuffer Material_constants : register(b0, space3)
 {
     // shared for all material compiled from the same MDL material
     // - none -
@@ -442,48 +432,6 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
             payload.contribution += payload.weight * intensity * eval_data.edf;
         #else
             payload.contribution += payload.weight * intensity * eval_data.edf[0];
-        #endif
-    }
-    #endif
-
-    // Write Auxiliary Buffers
-    //---------------------------------------------------------------------------------------------
-    #if defined(ENABLE_AUXILIARY)
-    if (has_flag(payload.flags, FLAG_FIRST_PATH_SEGMENT))
-    {
-        Bsdf_auxiliary_data aux_data = (Bsdf_auxiliary_data) 0;
-        aux_data.ior1 = ior1;                    // IOR current medium
-        aux_data.ior2 = ior2;                    // IOR other side
-        aux_data.k1 = -WorldRayDirection();      // outgoing direction
-        #if (MDL_DF_HANDLE_SLOT_MODE != -1)
-            aux_data.handle_offset = 0;
-        #endif
-
-        // use backface instead of surface scattering?
-        if (thin_walled && mdl_state.renderer_state.hit_backface && (MDL_HAS_BACKFACE_SCATTERING == 1))
-        {
-            #if (MDL_HAS_BACKFACE_SCATTERING == 1)
-                mdl_backface_scattering_auxiliary(aux_data, mdl_state);
-            #endif
-        }
-        else
-        {
-            #if (MDL_HAS_SURFACE_SCATTERING == 1)
-                mdl_surface_scattering_auxiliary(aux_data, mdl_state);
-            #endif
-        }
-
-        uint3 launch_index =  DispatchRaysIndex();
-        #if (MDL_DF_HANDLE_SLOT_MODE == -1)
-            AlbedoDiffuseBuffer[launch_index.xy] = float4(aux_data.albedo_diffuse, 1.0f);
-            AlbedoGlossyBuffer[launch_index.xy] = float4(aux_data.albedo_glossy, 1.0f);
-            NormalBuffer[launch_index.xy] = float4(aux_data.normal, 1.0f);
-            RoughnessBuffer[launch_index.xy] = float4(aux_data.roughness.xy, 0.0f, 1.0f);
-        #else
-            AlbedoDiffuseBuffer[launch_index.xy] = float4(aux_data.albedo_diffuse[0], 1.0f);
-            AlbedoGlossyBuffer[launch_index.xy] = float4(aux_data.albedo_glossy[0], 1.0f);
-            NormalBuffer[launch_index.xy] = float4(aux_data.normal[0], 1.0f);
-            RoughnessBuffer[launch_index.xy] = float4(aux_data.roughness[0].xy, 0.0f, 1.0f);
         #endif
     }
     #endif

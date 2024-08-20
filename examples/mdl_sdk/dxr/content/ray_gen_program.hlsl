@@ -43,16 +43,6 @@ cbuffer CameraParams : register(b0)
 RWTexture2D<float4> OutputBuffer : register(u0,space0); // 32bit floating point precision
 RWTexture2D<float4> FrameBuffer  : register(u1,space0); // 8bit
 
-// for some post processing effects or for AI denoising, auxiliary outputs are required.
-// from the MDL material perspective albedo (approximation) and normals can be generated.
-#if defined(ENABLE_AUXILIARY)
-    // in order to limit the payload size, this data is written directly from the hit programs
-    RWTexture2D<float4> AlbedoDiffuseBuffer : register(u2, space0);
-    RWTexture2D<float4> AlbedoGlossyBuffer : register(u3, space0);
-    RWTexture2D<float4> NormalBuffer : register(u4, space0);
-    RWTexture2D<float4> RoughnessBuffer : register(u5, space0);
-#endif
-
 // Ray tracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
 
@@ -137,31 +127,6 @@ void RayGenProgram()
     ray.TMin = 0.0f;
     ray.TMax = far_plane_distance;
 
-    #if defined(ENABLE_AUXILIARY)
-        // in order to limit the payload size, this data is written directly from the hit programs
-        // for a progressive refinement of the buffer content we store the current value locally
-        // this has other costs: register usage + additional reads/writes to global memory (here)
-        float4 tmp_albedo_diffuse = float4(0, 0, 0, 1);
-        float4 tmp_albedo_glossy = float4(0, 0, 0, 1);
-        float4 tmp_normal = float4(0, 0, 0, 1);
-        float4 tmp_roughness = float4(0, 0, 0, 1);
-        if (progressive_iteration == 0)
-        { 
-            // could be replaced by clear calls from CPU
-            AlbedoDiffuseBuffer[launch_index.xy] = tmp_albedo_diffuse;
-            AlbedoGlossyBuffer[launch_index.xy] = tmp_albedo_glossy;
-            NormalBuffer[launch_index.xy] = tmp_normal;
-            RoughnessBuffer[launch_index.xy] = tmp_roughness;
-        }
-        else
-        {
-            tmp_albedo_diffuse = AlbedoDiffuseBuffer[launch_index.xy];
-            tmp_albedo_glossy = AlbedoGlossyBuffer[launch_index.xy];
-            tmp_normal = NormalBuffer[launch_index.xy];
-            tmp_roughness = RoughnessBuffer[launch_index.xy];
-        }
-    #endif
-
     // when vsync is active, it is possible to compute multiple iterations per frame
     [loop]
     for (uint it_frame = 0; it_frame < iterations_per_frame; ++it_frame)
@@ -189,15 +154,6 @@ void RayGenProgram()
         // write results to the output buffers and average equally over all iterations
         float it_weight = 1.0f / float(it + 1);
         OutputBuffer[launch_index.xy] = lerp(OutputBuffer[launch_index.xy], float4(result, 1.0f), it_weight);
-
-        #if defined(ENABLE_AUXILIARY)
-            // note, while the 'OutputBuffer' contains converging image, the auxiliary buffers contain
-            // only the last values and 'tmp_*' stores the converged data
-            tmp_albedo_diffuse = lerp(tmp_albedo_diffuse, AlbedoDiffuseBuffer[launch_index.xy], it_weight);
-            tmp_albedo_glossy = lerp(tmp_albedo_glossy, AlbedoGlossyBuffer[launch_index.xy], it_weight);
-            tmp_normal = lerp(tmp_normal, NormalBuffer[launch_index.xy], it_weight);
-            tmp_roughness = lerp(tmp_roughness, RoughnessBuffer[launch_index.xy], it_weight);
-        #endif
     }
 
     // linear HDR data
@@ -211,60 +167,6 @@ void RayGenProgram()
     color.y *= (1.0f + color.y * burn_out) / (1.0f + color.y);
     color.z *= (1.0f + color.z * burn_out) / (1.0f + color.z);
 
-    #if defined(ENABLE_AUXILIARY)
-
-    // safe normalize
-    bool valid_normal = false;
-    if (dot(tmp_normal.xyz, tmp_normal.xyz) > 0.01f)
-    {
-        valid_normal = true;
-        tmp_normal.xyz = normalize(tmp_normal.xyz);
-    }
-
-    switch (display_buffer_index)
-    {
-        case 1: /* albedo */
-        {
-            color = tmp_albedo_diffuse.xyz + tmp_albedo_glossy.xyz;
-            break;
-        }
-        case 2: /* albedo diffuse */
-        {
-            color = tmp_albedo_diffuse.xyz;
-            break;
-        }
-        case 3: /* albedo glossy */
-        {
-            color = tmp_albedo_glossy.xyz;
-            break;
-        }
-
-        case 4: /* normal */
-        {
-            color = valid_normal ? (tmp_normal.xyz * 0.5f + 0.5f) : 0.0f;
-            break;
-        }
-
-        case 5: /* roughness */
-        {
-            color = tmp_roughness.xyz;
-            break;
-        }
-
-        default:
-            break;
-    }
-
-    #endif
-
     // apply gamma corrections for display
     FrameBuffer[launch_index.xy] = float4(pow(color, output_gamma_correction), 1.0f);
-
-    // write auxiliary buffer
-    #if defined(ENABLE_AUXILIARY)
-        AlbedoDiffuseBuffer[launch_index.xy] = tmp_albedo_diffuse;
-        AlbedoGlossyBuffer[launch_index.xy] = tmp_albedo_glossy;
-        NormalBuffer[launch_index.xy] = tmp_normal;
-        RoughnessBuffer[launch_index.xy] = tmp_roughness;
-    #endif
 }
