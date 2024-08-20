@@ -572,8 +572,7 @@ bool Mdl_material_target::generate()
 	// in the generated code and expose the factor in the MDL material state of the shader.
 	context->set_option("fold_meters_per_scene_unit", false);
 
-	link_unit = m_sdk->get_backend().create_link_unit(
-		m_sdk->get_transaction().get(), context.get());
+	link_unit = m_sdk->get_backend().create_link_unit(m_sdk->get_transaction().get(), context.get());
 	if (!m_sdk->log_messages("MDL creating a link unit failed.", context.get(), SRC))
 		return false;
 
@@ -745,8 +744,7 @@ bool Mdl_material_target::generate()
         {
             Mdl_resource_kind kind_i = static_cast<Mdl_resource_kind>(i);
             size_t current = mat->get_resources(kind_i).size();
-            m_material_resource_count[kind_i] =
-                std::max(m_material_resource_count[kind_i], current);
+            m_material_resource_count[kind_i] = std::max(m_material_resource_count[kind_i], current);
         }
         return true;
     });

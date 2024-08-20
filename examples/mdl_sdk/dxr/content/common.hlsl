@@ -90,41 +90,18 @@ cbuffer SceneConstants : register(b1)
 
 
 // Ray typed, has to match with CPU version
-#if defined(WITH_ENUM_SUPPORT)
-enum RayType
-{
-    RAY_TYPE_RADIANCE = 0,
-    RAY_TYPE_SHADOW,
+#define RayType uint
+#define RAY_TYPE_RADIANCE   0
+#define RAY_TYPE_SHADOW     1
+#define RAY_TYPE_COUNT      (RAY_TYPE_SHADOW + 1)
 
-    RAY_TYPE_COUNT,
-    RAY_TYPE_FORCE_32_BIT = 0xffffffffU
-};
-#else
-    #define RayType uint
-    #define RAY_TYPE_RADIANCE   0
-    #define RAY_TYPE_SHADOW     1
-    #define RAY_TYPE_COUNT      (RAY_TYPE_SHADOW + 1)
-#endif
-
-#if defined(WITH_ENUM_SUPPORT)
-enum RadianceHitInfoFlags
-{
-    FLAG_NONE = 0,
-    FLAG_INSIDE = 1,
-    FLAG_DONE = 2,
-    FLAG_FIRST_PATH_SEGMENT = 4,
-    FLAG_LAST_PATH_SEGMENT = 8,
-    FLAG_CAMERA_RAY = 16
-};
-#else
-    #define RadianceHitInfoFlags uint
-    #define FLAG_NONE               0
-    #define FLAG_INSIDE             1
-    #define FLAG_DONE               2
-    #define FLAG_FIRST_PATH_SEGMENT 4
-    #define FLAG_LAST_PATH_SEGMENT  8
-    #define FLAG_CAMERA_RAY        16
-#endif
+#define RadianceHitInfoFlags uint
+#define FLAG_NONE               0
+#define FLAG_INSIDE             1
+#define FLAG_DONE               2
+#define FLAG_FIRST_PATH_SEGMENT 4
+#define FLAG_LAST_PATH_SEGMENT  8
+#define FLAG_CAMERA_RAY        16
 
 void add_flag(inout uint flags, uint to_add) { flags |= to_add; }
 void toggle_flag(inout uint flags, uint to_toggle) { flags ^= to_toggle; }
@@ -169,49 +146,22 @@ float3 encode_errors(float3 color)
 //-------------------------------------------------------------------------------------------------
 
 /// interpolation of the data over the primitive
-#if defined(WITH_ENUM_SUPPORT)
-    enum SceneDataInterpolationMode
-    {
-        SCENE_DATA_INTERPOLATION_MODE_NONE = 0,
-        SCENE_DATA_INTERPOLATION_MODE_LINEAR = 1,
-        SCENE_DATA_INTERPOLATION_MODE_NEAREST = 2,
-    };
-#else
-    #define SceneDataInterpolationMode uint
-    #define SCENE_DATA_INTERPOLATION_MODE_NONE      0
-    #define SCENE_DATA_INTERPOLATION_MODE_LINEAR    1
-    #define SCENE_DATA_INTERPOLATION_MODE_NEAREST   2
-#endif
+#define SceneDataInterpolationMode uint
+#define SCENE_DATA_INTERPOLATION_MODE_NONE      0
+#define SCENE_DATA_INTERPOLATION_MODE_LINEAR    1
+#define SCENE_DATA_INTERPOLATION_MODE_NEAREST   2
 
 /// Scope a scene data element belongs to
-#if defined(WITH_ENUM_SUPPORT)
-    enum SceneDataKind
-    {
-        SCENE_DATA_KIND_NONE = 0,
-        SCENE_DATA_KIND_VERTEX = 1,
-        SCENE_DATA_KIND_INSTANCE = 2,
-    };
-#else
-    #define SceneDataKind uint
-    #define SCENE_DATA_KIND_NONE        0
-    #define SCENE_DATA_KIND_VERTEX      1
-    #define SCENE_DATA_KIND_INSTANCE    2
-#endif
+#define SceneDataKind uint
+#define SCENE_DATA_KIND_NONE        0
+#define SCENE_DATA_KIND_VERTEX      1
+#define SCENE_DATA_KIND_INSTANCE    2
 
 /// Basic element type of the scene data
-#if defined(WITH_ENUM_SUPPORT)
-    enum SceneDataElementType
-    {
-        SCENE_DATA_ELEMENT_TYPE_FLOAT = 0,
-        SCENE_DATA_ELEMENT_TYPE_INT = 1,
-        SCENE_DATA_ELEMENT_TYPE_COLOR = 2
-    };
-#else
-    #define SceneDataElementType uint
-    #define SCENE_DATA_ELEMENT_TYPE_FLOAT   0
-    #define SCENE_DATA_ELEMENT_TYPE_INT     1
-    #define SCENE_DATA_ELEMENT_TYPE_COLOR   2
-#endif
+#define SceneDataElementType uint
+#define SCENE_DATA_ELEMENT_TYPE_FLOAT   0
+#define SCENE_DATA_ELEMENT_TYPE_INT     1
+#define SCENE_DATA_ELEMENT_TYPE_COLOR   2
 
 // Infos about the interleaved vertex layout (compressed)
 struct SceneDataInfo
@@ -276,25 +226,16 @@ struct DXRRendererState
     // true if the hit point was on the backside of a triangle, based on geom normal and ray direction
     bool hit_backface;
 };
+
 // use this structure as renderer state in the MDL shading state material
 #define RENDERER_STATE_TYPE DXRRendererState
 
-
 // Positions, normals, and tangents are mandatory for this renderer. The vertex buffer always
 // contains this data at the beginning of the (interleaved) per vertex data.
-#if defined(WITH_ENUM_SUPPORT)
-    enum VertexByteOffset
-    {
-        VERT_BYTEOFFSET_POSITION = 0,
-        VERT_BYTEOFFSET_NORMAL = 12,
-        VERT_BYTEOFFSET_TANGENT = 24,
-    };
-#else
-    #define VertexByteOffset uint
-    #define VERT_BYTEOFFSET_POSITION    0
-    #define VERT_BYTEOFFSET_NORMAL      12
-    #define VERT_BYTEOFFSET_TANGENT     24
-#endif
+#define VertexByteOffset uint
+#define VERT_BYTEOFFSET_POSITION    0
+#define VERT_BYTEOFFSET_NORMAL      12
+#define VERT_BYTEOFFSET_TANGENT     24
 
 //-------------------------------------------------------------------------------------------------
 // random number generator based on the Optix SDK

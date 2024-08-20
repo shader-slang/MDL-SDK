@@ -139,68 +139,6 @@ struct Shading_state_material
 #endif
 };
 
-#if defined(WITH_ENUM_SUPPORT)  // HLSL 2017 and above support enums
-
-/// The texture wrap modes as defined by \c tex::wrap_mode in the MDL specification.
-/// It determines the texture lookup behavior if a lookup coordinate
-/// is exceeding the normalized half-open texture space range of [0, 1).
-enum Tex_wrap_mode {
-    /// \c tex::wrap_clamp: clamps the lookup coordinate to the range
-    TEX_WRAP_CLAMP           = 0,
-
-    /// \c tex::wrap_repeat: takes the fractional part of the lookup coordinate
-    /// effectively repeating the texture along this axis
-    TEX_WRAP_REPEAT          = 1,
-
-    /// \c tex::wrap_mirrored_repeat: like wrap_repeat but takes one minus the fractional part
-    /// every other interval to mirror every second instance of the texture
-    TEX_WRAP_MIRRORED_REPEAT = 2,
-
-    /// \c tex::wrap_clip: makes the texture lookup return zero for texture coordinates outside
-    /// of the range
-    TEX_WRAP_CLIP            = 3
-};
-
-/// The type of events created by BSDF importance sampling.
-enum Bsdf_event_type {
-    BSDF_EVENT_ABSORB       = 0,
-
-    BSDF_EVENT_DIFFUSE      = 1,
-    BSDF_EVENT_GLOSSY       = 1 << 1,
-    BSDF_EVENT_SPECULAR     = 1 << 2,
-    BSDF_EVENT_REFLECTION   = 1 << 3,
-    BSDF_EVENT_TRANSMISSION = 1 << 4,
-
-    BSDF_EVENT_DIFFUSE_REFLECTION    = BSDF_EVENT_DIFFUSE  | BSDF_EVENT_REFLECTION,
-    BSDF_EVENT_DIFFUSE_TRANSMISSION  = BSDF_EVENT_DIFFUSE  | BSDF_EVENT_TRANSMISSION,
-    BSDF_EVENT_GLOSSY_REFLECTION     = BSDF_EVENT_GLOSSY   | BSDF_EVENT_REFLECTION,
-    BSDF_EVENT_GLOSSY_TRANSMISSION   = BSDF_EVENT_GLOSSY   | BSDF_EVENT_TRANSMISSION,
-    BSDF_EVENT_SPECULAR_REFLECTION   = BSDF_EVENT_SPECULAR | BSDF_EVENT_REFLECTION,
-    BSDF_EVENT_SPECULAR_TRANSMISSION = BSDF_EVENT_SPECULAR | BSDF_EVENT_TRANSMISSION,
-
-    BSDF_EVENT_FORCE_32_BIT = 0xffffffffU
-};
-
-/// The type of events created by EDF importance sampling.
-enum Edf_event_type {
-    EDF_EVENT_NONE          = 0,
-    EDF_EVENT_EMISSION      = 1,
-
-    EDF_EVENT_FORCE_32_BIT  = 0xffffffffU
-};
-
-/// MBSDFs can consist of two parts, which can be selected using this enumeration.
-enum Mbsdf_part
-{
-    /// the bidirectional reflection distribution function (BRDF)
-    MBSDF_DATA_REFLECTION = 0,
-
-    /// the bidirectional transmission distribution function (BTDF)
-    MBSDF_DATA_TRANSMISSION = 1
-};
-
-#else
-
 /// The texture wrap modes as defined by \c tex::wrap_mode in the MDL specification.
 #define Tex_wrap_mode             int
 #define TEX_WRAP_CLAMP            0
@@ -237,13 +175,6 @@ enum Mbsdf_part
 #define Mbsdf_part               int
 #define MBSDF_DATA_REFLECTION    0
 #define MBSDF_DATA_TRANSMISSION  1
-
-#endif
-
-/// The calling code can mark the \c x component of an IOR field in *_data with
-/// \c BSDF_USE_MATERIAL_IOR, to make the BSDF functions use the MDL material's IOR
-/// for this IOR field.
-#define BSDF_USE_MATERIAL_IOR (-1.0f)
 
 /// Input and output structure for BSDF sampling data.
 struct Bsdf_sample_data {

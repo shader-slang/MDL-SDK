@@ -276,8 +276,8 @@ void MdlRadianceClosestHitProgram(inout RadianceHitInfo payload, Attributes attr
 
     // for thin-walled materials there is no 'inside'
     const bool inside = has_flag(payload.flags, FLAG_INSIDE);
-    const float ior1 = (inside &&!thin_walled) ? BSDF_USE_MATERIAL_IOR : 1.0f;
-    const float ior2 = (inside &&!thin_walled) ? 1.0f : BSDF_USE_MATERIAL_IOR;
+    const float ior1 = (inside && !thin_walled) ? -1.0f :  1.0f;
+    const float ior2 = (inside && !thin_walled) ?  1.0f : -1.0f;
 
     // Sample Light Sources for next event estimation
     //---------------------------------------------------------------------------------------------
