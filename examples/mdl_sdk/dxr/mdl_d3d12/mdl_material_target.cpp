@@ -827,24 +827,18 @@ bool Mdl_material_target::generate()
     m_hlsl_source_code.clear();
 
     // depending on the functions selected for code generation
-    m_hlsl_source_code += interface_data.has_surface_scattering
-        ? "#define MDL_HAS_SURFACE_SCATTERING 1\n"
-        : "#define MDL_HAS_SURFACE_SCATTERING 0\n";
-    m_hlsl_source_code += interface_data.has_surface_emission
-        ? "#define MDL_HAS_SURFACE_EMISSION 1\n"
-        : "#define MDL_HAS_SURFACE_EMISSION 0\n";
-    m_hlsl_source_code += interface_data.has_backface_scattering
-        ? "#define MDL_HAS_BACKFACE_SCATTERING 1\n"
-        : "#define MDL_HAS_BACKFACE_SCATTERING 0\n";
-    m_hlsl_source_code += interface_data.has_backface_emission
-        ? "#define MDL_HAS_BACKFACE_EMISSION 1\n"
-        : "#define MDL_HAS_BACKFACE_EMISSION 0\n";
-    m_hlsl_source_code += interface_data.has_volume_absorption
-        ? "#define MDL_HAS_VOLUME_ABSORPTION 1\n"
-        : "#define MDL_HAS_VOLUME_ABSORPTION 0\n";
-    m_hlsl_source_code += interface_data.can_be_thin_walled
-        ? "#define MDL_CAN_BE_THIN_WALLED 1\n"
-        : "#define MDL_CAN_BE_THIN_WALLED 0\n";
+    printf("[I] SURFACE SCATTERING: %d\n", interface_data.has_surface_scattering);
+    printf("[I] SURFACE EMISSION: %d\n", interface_data.has_surface_emission);
+
+    printf("[I] BACKFACE SCATTERING: %d\n", interface_data.has_backface_scattering);
+    printf("[I] BACKFACE EMISSION: %d\n", interface_data.has_backface_emission);
+
+    printf("[I] VOLUME ABSORPTION: %d\n", interface_data.has_volume_absorption);
+    printf("[I] THIN WALLED: %d\n", interface_data.can_be_thin_walled);
+
+    m_hlsl_source_code += "#define MDL_HAS_SURFACE_SCATTERING 1\n";
+    m_hlsl_source_code += "#define MDL_HAS_BACKFACE_SCATTERING 0\n";
+    m_hlsl_source_code += "#define MDL_CAN_BE_THIN_WALLED 1\n";
     m_hlsl_source_code += "\n";
 
     // TODO: force use 32 texture results...

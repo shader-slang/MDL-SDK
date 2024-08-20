@@ -358,69 +358,6 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
     const float ior1 = (inside &&!thin_walled) ? BSDF_USE_MATERIAL_IOR : 1.0f;
     const float ior2 = (inside &&!thin_walled) ? 1.0f : BSDF_USE_MATERIAL_IOR;
 
-
-    // apply volume attenuation
-    //---------------------------------------------------------------------------------------------
-    #if (MDL_HAS_VOLUME_ABSORPTION == 1)
-        if (inside && !thin_walled) // compute absorption only on exit
-        {
-            const float3 abs_coeff = mdl_volume_absorption_coefficient(mdl_state);
-
-            // distance in meters
-            #if defined(USE_DERIVS)
-                const float distance = length(mdl_state.position.val - payload.ray_origin_next) * meters_per_scene_unit;
-            #else
-                const float distance = length(mdl_state.position - payload.ray_origin_next) * meters_per_scene_unit;
-            #endif
-
-            payload.weight.x *= abs_coeff.x > 0.0f ? exp(-abs_coeff.x * distance) : 1.0f;
-            payload.weight.y *= abs_coeff.y > 0.0f ? exp(-abs_coeff.y * distance) : 1.0f;
-            payload.weight.z *= abs_coeff.z > 0.0f ? exp(-abs_coeff.z * distance) : 1.0f;
-        }
-    #endif
-
-    // add emission
-    //---------------------------------------------------------------------------------------------
-    #if (MDL_HAS_SURFACE_EMISSION == 1 || MDL_HAS_BACKFACE_EMISSION == 1)
-    {
-        // evaluate EDF
-        Edf_evaluate_data eval_data = (Edf_evaluate_data) 0;
-        eval_data.k1 = -WorldRayDirection();
-        #if (MDL_DF_HANDLE_SLOT_MODE != -1)
-            eval_data.handle_offset = 0;
-        #endif
-        float3 intensity = float3(0.0f, 0.0f, 0.0f);
-
-        if (thin_walled && mdl_state.renderer_state.hit_backface && (MDL_HAS_BACKFACE_EMISSION == 1))
-        {
-            #if (MDL_HAS_BACKFACE_EMISSION == 1)
-                // evaluate the distribution function
-                mdl_backface_emission_evaluate(eval_data, mdl_state);
-
-                // evaluate intensity expression
-                intensity = mdl_backface_emission_intensity(mdl_state);
-            #endif
-        }
-        else
-        {
-            #if (MDL_HAS_SURFACE_EMISSION == 1)
-                // evaluate the distribution function
-                mdl_surface_emission_evaluate(eval_data, mdl_state);
-
-                // evaluate intensity expression
-                intensity = mdl_surface_emission_intensity(mdl_state);
-            #endif
-        }
-
-        // add emission
-        #if (MDL_DF_HANDLE_SLOT_MODE == -1)
-            payload.contribution += payload.weight * intensity * eval_data.edf;
-        #else
-            payload.contribution += payload.weight * intensity * eval_data.edf[0];
-        #endif
-    }
-    #endif
-
     // Sample Light Sources for next event estimation
     //---------------------------------------------------------------------------------------------
 
