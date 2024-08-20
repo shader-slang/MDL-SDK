@@ -241,8 +241,7 @@ void setup_mdl_shading_state(out Shading_state_material mdl_state, Attributes at
     // get texture coordinates using a manually added scene data element with the scene data id
     // defined as `SCENE_DATA_ID_TEXCOORD_0`
     // (see end of target code generation on application side)
-    float2 texcoord0 = scene_data_lookup_float2(
-        mdl_state, SCENE_DATA_ID_TEXCOORD_0, float2(0.0f, 0.0f), false);
+    float2 texcoord0 = scene_data_lookup_float2(mdl_state, 1 /* SCENE_DATA_ID_TEXCOORD_0 */, float2(0.0f, 0.0f), false);
 
     // apply uv transformations
     texcoord0 = texcoord0 * uv_scale + uv_offset;

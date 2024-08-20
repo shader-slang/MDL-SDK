@@ -29,11 +29,6 @@
 #if !defined(MDL_TARGET_CODE_TYPES_HLSLI)
 #define MDL_TARGET_CODE_TYPES_HLSLI
 
-#if defined(MDL_NUM_TEXTURE_RESULTS) && (MDL_NUM_TEXTURE_RESULTS > 0)
-    #define USE_TEXTURE_RESULTS
-#endif
-
-
 struct Derived_float {
     float val;
     float dx;
@@ -104,9 +99,8 @@ struct Shading_state_material
     /// This field is only relevant for code generated with
     /// #mi::neuraylib::IMdl_backend::translate_material_df() or
     /// #mi::neuraylib::ILink_unit::add_material_df(). In other cases this may be NULL.
-#if defined(USE_TEXTURE_RESULTS)
-    float4            text_results[MDL_NUM_TEXTURE_RESULTS];
-#endif
+    float4            text_results[32];
+    
     /// An offset for accesses to the read-only data segment. Will be added before
     /// calling any "mdl_read_rodata_as_*" function.
     /// The data of the read-only data segment is accessible as the first segment

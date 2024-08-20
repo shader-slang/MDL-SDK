@@ -827,29 +827,14 @@ bool Mdl_material_target::generate()
     m_hlsl_source_code.clear();
 
     // depending on the functions selected for code generation
-    printf("[I] SURFACE SCATTERING: %d\n", interface_data.has_surface_scattering);
-    printf("[I] SURFACE EMISSION: %d\n", interface_data.has_surface_emission);
-
-    printf("[I] BACKFACE SCATTERING: %d\n", interface_data.has_backface_scattering);
-    printf("[I] BACKFACE EMISSION: %d\n", interface_data.has_backface_emission);
-
-    printf("[I] VOLUME ABSORPTION: %d\n", interface_data.has_volume_absorption);
-    printf("[I] THIN WALLED: %d\n", interface_data.can_be_thin_walled);
-
-    // TODO: force use 32 texture results...
-    m_hlsl_source_code += "#define MDL_NUM_TEXTURE_RESULTS " +
-        std::to_string(m_app->get_options()->texture_results_cache_size) + "\n";
-
-    m_hlsl_source_code += "\n";
-
-    // since scene data access is more expensive than direct vertex data access and since
-    // texture coordinates are extremely common, MDL typically fetches those from the state.
-    // for demonstration purposes, this renderer uses the scene data instead which makes
-    // texture coordinates optional
-    m_hlsl_source_code += "\n";
-
-    m_hlsl_source_code += "#define SCENE_DATA_ID_TEXCOORD_0 " +
-        std::to_string(map_string_constant("TEXCOORD_0")) + "\n"; // registered before
+    printf("[I] SURFACE SCATTERING       %2d (=1)\n", interface_data.has_surface_scattering);
+    printf("[I] SURFACE EMISSION         %2d (=0)\n", interface_data.has_surface_emission);
+    printf("[I] BACKFACE SCATTERING      %2d (=0)\n", interface_data.has_backface_scattering);
+    printf("[I] BACKFACE EMISSION        %2d (=0)\n", interface_data.has_backface_emission);
+    printf("[I] VOLUME ABSORPTION        %2d (=0)\n", interface_data.has_volume_absorption);
+    printf("[I] THIN WALLED              %2d (=1)\n", interface_data.can_be_thin_walled);
+    printf("[I] SCENE_DATA_ID_TEXCOORD0  %2d (=1)\n", map_string_constant("TEXCOORD_0"));
+    printf("[I] MDL_NUM_TEXTURE_RESULTS  %2u (=1)\n", m_app->get_options()->texture_results_cache_size);
 
     m_hlsl_source_code += "\n";
     m_hlsl_source_code += "#include \"content/common.hlsl\"\n";
