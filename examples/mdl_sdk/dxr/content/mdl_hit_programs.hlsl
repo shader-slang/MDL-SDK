@@ -90,24 +90,12 @@ cbuffer Material_constants : register(b0, space3)
     uint material_flags;
 }
 
-// Defined in the code generator, enable everything here for source code editing only
-#if !defined(MDL_HAS_SURFACE_SCATTERING)
-#define MDL_HAS_SURFACE_SCATTERING 1
-#define MDL_HAS_SURFACE_EMISSION 1
-#define MDL_HAS_BACKFACE_SCATTERING 1
-#define MDL_HAS_BACKFACE_EMISSION 1
-#define MDL_HAS_VOLUME_ABSORPTION 1
-#define MDL_CAN_BE_THIN_WALLED 1
-#define MDL_HAS_INIT 1
-#endif
-
 // ------------------------------------------------------------------------------------------------
 // helper
 // ------------------------------------------------------------------------------------------------
 
 // selects one light source randomly
-float3 sample_lights(
-    Shading_state_material state, out float3 to_light, out float light_pdf, inout uint seed)
+float3 sample_lights(Shading_state_material state, out float3 to_light, out float light_pdf, inout uint seed)
 {
     float p_select_light = 1.0f;
     if (point_light_enabled != 0)
@@ -355,10 +343,7 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
     Shading_state_material mdl_state;
     setup_mdl_shading_state(mdl_state, attrib);
 
-    // pre-compute and cache data used by different generated MDL functions
-    #if (MDL_HAS_INIT == 1)
-        mdl_init(mdl_state);
-    #endif
+	mdl_init(mdl_state);
 
     // thin-walled materials are allowed to have a different back side
     // buy the can't have volumetric properties

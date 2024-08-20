@@ -564,115 +564,18 @@ bool Mdl_material_target::generate()
     mi::base::Handle<mi::neuraylib::IMdl_execution_context> context(m_sdk->create_context());
 
     // use shader caching if enabled
-    bool loaded_from_shader_cache = false;
     Mdl_material_target_interface interface_data;
-    if (m_sdk->get_options().enable_shader_cache)
-    {
-        auto p = m_app->get_profiling().measure("loading from shader cache");
-
-        const std::string filename = compute_shader_cache_filename(
-            *m_app->get_options(), m_compiled_material_hash);
-
-        // read the cache if it exists
-        if (mi::examples::io::file_exists(filename))
-        {
-            std::ifstream file(filename,
-                std::ios::in | std::ios::binary | std::ios::ate);
-
-            char* cache_buffer = nullptr;
-            while (file.is_open())
-            {
-                size_t cache_buffer_size = file.tellg();
-                file.seekg(0, std::ios::beg);
-                cache_buffer = new char[cache_buffer_size];
-                file.read(cache_buffer, cache_buffer_size);
-                file.close();
-
-                // get the target code
-                if (cache_buffer_size < sizeof(size_t))
-                    break;
-                size_t target_code_size = *(reinterpret_cast<size_t*>(cache_buffer));
-                size_t offset = sizeof(size_t);
-                if (cache_buffer_size < (offset + target_code_size))
-                    break;
-
-                // use the back-end to restore the serialized target code
-                // this is expected to fail when build or protocol versions do not match
-                m_target_code = m_sdk->get_backend().deserialize_target_code(
-                    m_sdk->get_transaction().get(),
-                    reinterpret_cast<mi::Uint8*>(cache_buffer + offset),
-                    target_code_size, context.get());
-
-                if (!m_sdk->log_messages("Deserializing Shader Cache failed.", context.get()) ||
-                    !m_target_code)
-                        break;
-
-                offset += target_code_size;
-
-                // get the material interface data
-                if (cache_buffer_size < sizeof(Mdl_material_target_interface))
-                    break;
-                interface_data = *(reinterpret_cast<Mdl_material_target_interface*>(
-                    cache_buffer + offset));
-                offset += sizeof(Mdl_material_target_interface);
-
-                // also get the compiles shader
-                if (cache_buffer_size < (offset + sizeof(size_t)))
-                    break;
-
-                // number of dxil libraries
-                size_t num_libraries = *(reinterpret_cast<size_t*>(cache_buffer + offset));
-                offset += sizeof(size_t);
-                m_dxil_compiled_libraries.clear();
-                m_dxil_compiled_libraries.reserve(num_libraries);
-
-                for (size_t l = 0; l < num_libraries; ++l)
-                {
-                    // first, the symbols, starting with the number of symbols ...
-                    size_t num_exp_symbols = *(reinterpret_cast<size_t*>(cache_buffer + offset));
-                    offset += sizeof(size_t);
-
-                    std::vector<std::string> exports;
-                    for (size_t s = 0; s < num_exp_symbols; ++s)
-                    {
-                        // ... and then for each, string length and string data
-                        size_t symbol_size = *(reinterpret_cast<size_t*>(cache_buffer + offset));
-                        offset += sizeof(size_t);
-
-                        std::string symbol_name(cache_buffer + offset, cache_buffer + offset + symbol_size);
-                        offset += symbol_size;
-                        exports.push_back(symbol_name);
-                    }
-
-                    // the dxil blob
-                    size_t dxil_blob_size = *(reinterpret_cast<size_t*>(cache_buffer + offset));
-                    offset += sizeof(size_t);
-                    auto dxil_compiled_library = new DxcBlobFromMemory(cache_buffer + offset, dxil_blob_size);
-                    m_dxil_compiled_libraries.push_back(Shader_library(dxil_compiled_library, exports));
-                    offset += dxil_blob_size;
-                }
-
-                loaded_from_shader_cache = true;
-                break;
-            }
-            if (cache_buffer)
-                delete[] cache_buffer;
-        }
-    }
-
+    
     // use the back-end to generate HLSL code
     mi::base::Handle<mi::neuraylib::ILink_unit> link_unit(nullptr);
-    if (!loaded_from_shader_cache)
-    {
-        // in order to change the scene scale setting at runtime we need to preserve the conversions
-        // in the generated code and expose the factor in the MDL material state of the shader.
-        context->set_option("fold_meters_per_scene_unit", false);
+	// in order to change the scene scale setting at runtime we need to preserve the conversions
+	// in the generated code and expose the factor in the MDL material state of the shader.
+	context->set_option("fold_meters_per_scene_unit", false);
 
-        link_unit = m_sdk->get_backend().create_link_unit(
-            m_sdk->get_transaction().get(), context.get());
-        if (!m_sdk->log_messages("MDL creating a link unit failed.", context.get(), SRC))
-            return false;
-    }
+	link_unit = m_sdk->get_backend().create_link_unit(
+		m_sdk->get_transaction().get(), context.get());
+	if (!m_sdk->log_messages("MDL creating a link unit failed.", context.get(), SRC))
+		return false;
 
     // empty resource list (in case of reload) and rest the counter
     for (size_t i = 0, n = static_cast<size_t>(Mdl_resource_kind::_Count); i < n; ++i)
@@ -692,8 +595,7 @@ bool Mdl_material_target::generate()
             process_hash = hash;
 
             // add this material to the link unit
-            if (!loaded_from_shader_cache && !add_material_to_link_unit(
-                interface_data, pair.second, link_unit.get(), context.get()))
+            if (!add_material_to_link_unit(interface_data, pair.second, link_unit.get(), context.get()))
             {
                 log_error("Adding to link unit failed: " + pair.second->get_name(), SRC);
                 return false;
@@ -713,13 +615,10 @@ bool Mdl_material_target::generate()
     }
 
     // generate HLSL code
-    if (!loaded_from_shader_cache)
-    {
-        auto p = m_app->get_profiling().measure("generating HLSL (translate link unit)");
-        m_target_code = m_sdk->get_backend().translate_link_unit(link_unit.get(), context.get());
-        if (!m_sdk->log_messages("MDL target code generation failed.", context.get(), SRC))
-            return false;
-    }
+	auto p = m_app->get_profiling().measure("generating HLSL (translate link unit)");
+	m_target_code = m_sdk->get_backend().translate_link_unit(link_unit.get(), context.get());
+	if (!m_sdk->log_messages("MDL target code generation failed.", context.get(), SRC))
+		return false;
 
     // create a command list for uploading data to the GPU
     Command_queue* command_queue = m_app->get_command_queue(D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -924,22 +823,10 @@ bool Mdl_material_target::generate()
     // generate some dxr specific shader code to hook things up
     // -------------------------------------------------------------------
 
-    // ... this is not required when the shader is loaded from the cache
-    if (loaded_from_shader_cache)
-    {
-        command_queue->execute_command_list(command_list);
-        m_generation_required = false;
-        m_compilation_required = false;
-        return true;
-    }
-
     // generate the actual shader code with the help of some snippets
     m_hlsl_source_code.clear();
 
     // depending on the functions selected for code generation
-    m_hlsl_source_code += interface_data.has_init
-        ? "#define MDL_HAS_INIT 1\n"
-        : "#define MDL_HAS_INIT 0\n";
     m_hlsl_source_code += interface_data.has_surface_scattering
         ? "#define MDL_HAS_SURFACE_SCATTERING 1\n"
         : "#define MDL_HAS_SURFACE_SCATTERING 0\n";
@@ -968,13 +855,13 @@ bool Mdl_material_target::generate()
 
     // TODO: enable automatic derivatives, disable auxiliary
     if (m_app->get_options()->automatic_derivatives) m_hlsl_source_code += "#define USE_DERIVS\n";
-    m_hlsl_source_code += "#define MDL_DF_HANDLE_SLOT_MODE -1\n";
 
     // since scene data access is more expensive than direct vertex data access and since
     // texture coordinates are extremely common, MDL typically fetches those from the state.
     // for demonstration purposes, this renderer uses the scene data instead which makes
     // texture coordinates optional
     m_hlsl_source_code += "\n";
+
     m_hlsl_source_code += "#define SCENE_DATA_ID_TEXCOORD_0 " +
         std::to_string(map_string_constant("TEXCOORD_0")) + "\n"; // registered before
 
@@ -982,6 +869,7 @@ bool Mdl_material_target::generate()
     m_hlsl_source_code += "#include \"content/common.hlsl\"\n";
     m_hlsl_source_code += "#include \"content/mdl_target_code_types.hlsl\"\n";
     m_hlsl_source_code += "#include \"content/mdl_renderer_runtime.hlsl\"\n\n";
+
     m_hlsl_source_code += m_target_code->get_code();
 
     // this last snipped contains the actual hit shader and the renderer logic
