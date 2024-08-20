@@ -26,12 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-enum MaterialFlags
-{
-	MATERIAL_FLAG_NONE          = 0,
-	MATERIAL_FLAG_OPAQUE        = 1 << 0, // allows to skip opacity evaluation
-	MATERIAL_FLAG_SINGLE_SIDED  = 1 << 1  // geometry is only visible from the front side
-};
+typedef int MaterialFlags;
+static const MaterialFlags MATERIAL_FLAG_NONE = 0;
+static const MaterialFlags MATERIAL_FLAG_OPAQUE = 1 << 0; // allows to skip opacity evaluation
+static const MaterialFlags MATERIAL_FLAG_SINGLE_SIDED = 1 << 1; // geometry is only visible from the front side
 
 // ------------------------------------------------------------------------------------------------
 // defined in the global root signature
@@ -144,8 +142,9 @@ bool is_back_face()
 {
     // get vertex indices for the hit triangle
     const uint index_offset = 3 * PrimitiveIndex() + geometry_index_offset;
-    const uint3 vertex_indices = uint3(
-        indices[index_offset + 0], indices[index_offset + 1], indices[index_offset + 2]);
+    const uint3 vertex_indices = uint3(indices[index_offset + 0],
+                                       indices[index_offset + 1],
+                                       indices[index_offset + 2]);
 
     // get position of the hit point
     const float3 pos0 = fetch_vertex_data_float3(vertex_indices.x, VERT_BYTEOFFSET_POSITION);
@@ -161,7 +160,9 @@ void setup_mdl_shading_state(out Shading_state_material mdl_state, Attributes at
 {
     // get vertex indices for the hit triangle
     const uint index_offset = 3 * PrimitiveIndex() + geometry_index_offset;
-    const uint3 vertex_indices = uint3(indices[index_offset + 0], indices[index_offset + 1], indices[index_offset + 2]);
+    const uint3 vertex_indices = uint3(indices[index_offset + 0],
+                                       indices[index_offset + 1],
+                                       indices[index_offset + 2]);
 
     // coordinates inside the triangle
     const float3 barycentric = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
@@ -179,10 +180,9 @@ void setup_mdl_shading_state(out Shading_state_material mdl_state, Attributes at
 
     // get normals (geometry normal and interpolated vertex normal)
     const float3 geom_normal = normalize(cross(pos1 - pos0, pos2 - pos0));
-    const float3 normal = normalize(
-        fetch_vertex_data_float3(vertex_indices.x, VERT_BYTEOFFSET_NORMAL) * barycentric.x +
-        fetch_vertex_data_float3(vertex_indices.y, VERT_BYTEOFFSET_NORMAL) * barycentric.y +
-        fetch_vertex_data_float3(vertex_indices.z, VERT_BYTEOFFSET_NORMAL) * barycentric.z);
+    const float3 normal = normalize(fetch_vertex_data_float3(vertex_indices.x, VERT_BYTEOFFSET_NORMAL) * barycentric.x
+                                    + fetch_vertex_data_float3(vertex_indices.y, VERT_BYTEOFFSET_NORMAL) * barycentric.y
+                                    + fetch_vertex_data_float3(vertex_indices.z, VERT_BYTEOFFSET_NORMAL) * barycentric.z);
 
     // transform normals using inverse transpose
     // -  world_to_object = object_to_world^-1
@@ -192,10 +192,9 @@ void setup_mdl_shading_state(out Shading_state_material mdl_state, Attributes at
 
     // reconstruct tangent frame from vertex data
     float3 world_tangent, world_binormal;
-    float4 tangent0 =
-        fetch_vertex_data_float4(vertex_indices.x, VERT_BYTEOFFSET_TANGENT) * barycentric.x +
-        fetch_vertex_data_float4(vertex_indices.y, VERT_BYTEOFFSET_TANGENT) * barycentric.y +
-        fetch_vertex_data_float4(vertex_indices.z, VERT_BYTEOFFSET_TANGENT) * barycentric.z;
+    float4 tangent0 = fetch_vertex_data_float4(vertex_indices.x, VERT_BYTEOFFSET_TANGENT) * barycentric.x
+                      + fetch_vertex_data_float4(vertex_indices.y, VERT_BYTEOFFSET_TANGENT) * barycentric.y
+                      + fetch_vertex_data_float4(vertex_indices.z, VERT_BYTEOFFSET_TANGENT) * barycentric.z;
     tangent0.xyz = normalize(tangent0.xyz);
     world_tangent = normalize(mul(object_to_world, float4(tangent0.xyz, 0)).xyz);
     world_tangent = normalize(world_tangent - dot(world_tangent, world_normal) * world_normal);
@@ -288,8 +287,9 @@ void MdlRadianceClosestHitProgram(inout RadianceHitInfo payload, Attributes attr
 
     // do not next event estimation (but delay the adding of contribution)
     float3 contribution = float3(0.0f, 0.0f, 0.0f);
-    const bool next_event_valid = ((dot(to_light, mdl_state.geom_normal) > 0.0f) != inside) && light_pdf != 0.0f &&
-        !has_flag(payload.flags, FLAG_LAST_PATH_SEGMENT);
+    const bool next_event_valid = ((dot(to_light, mdl_state.geom_normal) > 0.0f) != inside)
+                                  && (light_pdf != 0.0f)
+                                  && !has_flag(payload.flags, FLAG_LAST_PATH_SEGMENT);
 
     if (next_event_valid)
     {

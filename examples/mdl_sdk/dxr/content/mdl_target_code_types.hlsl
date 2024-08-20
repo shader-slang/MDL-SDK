@@ -26,9 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#if !defined(MDL_TARGET_CODE_TYPES_HLSLI)
-#define MDL_TARGET_CODE_TYPES_HLSLI
-
 struct Derived_float {
     float val;
     float dx;
@@ -131,50 +128,45 @@ struct Shading_state_material
     /// An offset to add to any argument block read accesses.
     uint              arg_block_offset;
 
-#if defined(RENDERER_STATE_TYPE)
     /// A user-defined structure that allows to pass renderer information; for instance about the
     /// hit-point or buffer references; to mdl run-time functions. This is especially required for
     /// the scene data access. The fields of this structure are not altered by generated code.
     RENDERER_STATE_TYPE renderer_state;
-#endif
 };
 
 /// The texture wrap modes as defined by \c tex::wrap_mode in the MDL specification.
-#define Tex_wrap_mode             int
-#define TEX_WRAP_CLAMP            0
-#define TEX_WRAP_REPEAT           1
-#define TEX_WRAP_MIRRORED_REPEAT  2
-#define TEX_WRAP_CLIP             3
+typedef int Tex_wrap_mode;
+static const Tex_wrap_mode TEX_WRAP_CLAMP = 0;
+static const Tex_wrap_mode TEX_WRAP_REPEAT = 1;
+static const Tex_wrap_mode TEX_WRAP_MIRRORED_REPEAT = 2;
+static const Tex_wrap_mode TEX_WRAP_CLIP = 3;
 
 /// The type of events created by BSDF importance sampling.
-#define Bsdf_event_type         int
-#define BSDF_EVENT_ABSORB       0
+typedef int Bsdf_event_type;
+static const Bsdf_event_type BSDF_EVENT_ABSORB = 0;
+static const Bsdf_event_type BSDF_EVENT_DIFFUSE = 1;
+static const Bsdf_event_type BSDF_EVENT_GLOSSY = (1 << 1);
+static const Bsdf_event_type BSDF_EVENT_SPECULAR = (1 << 2);
+static const Bsdf_event_type BSDF_EVENT_REFLECTION = (1 << 3);
+static const Bsdf_event_type BSDF_EVENT_TRANSMISSION = (1 << 4);
 
-#define BSDF_EVENT_DIFFUSE      1
-#define BSDF_EVENT_GLOSSY       (1 << 1)
-#define BSDF_EVENT_SPECULAR     (1 << 2)
-#define BSDF_EVENT_REFLECTION   (1 << 3)
-#define BSDF_EVENT_TRANSMISSION (1 << 4)
+static const Bsdf_event_type BSDF_EVENT_DIFFUSE_REFLECTION = (BSDF_EVENT_DIFFUSE  | BSDF_EVENT_REFLECTION);
+static const Bsdf_event_type BSDF_EVENT_DIFFUSE_TRANSMISSION = (BSDF_EVENT_DIFFUSE  | BSDF_EVENT_TRANSMISSION);
+static const Bsdf_event_type BSDF_EVENT_GLOSSY_REFLECTION = (BSDF_EVENT_GLOSSY   | BSDF_EVENT_REFLECTION);
+static const Bsdf_event_type BSDF_EVENT_GLOSSY_TRANSMISSION = (BSDF_EVENT_GLOSSY   | BSDF_EVENT_TRANSMISSION);
+static const Bsdf_event_type BSDF_EVENT_SPECULAR_REFLECTION = (BSDF_EVENT_SPECULAR | BSDF_EVENT_REFLECTION);
+static const Bsdf_event_type BSDF_EVENT_SPECULAR_TRANSMISSION = (BSDF_EVENT_SPECULAR | BSDF_EVENT_TRANSMISSION);
+static const Bsdf_event_type BSDF_EVENT_FORCE_32_BIT = 0xffffffffU;
 
-#define BSDF_EVENT_DIFFUSE_REFLECTION    (BSDF_EVENT_DIFFUSE  | BSDF_EVENT_REFLECTION)
-#define BSDF_EVENT_DIFFUSE_TRANSMISSION  (BSDF_EVENT_DIFFUSE  | BSDF_EVENT_TRANSMISSION)
-#define BSDF_EVENT_GLOSSY_REFLECTION     (BSDF_EVENT_GLOSSY   | BSDF_EVENT_REFLECTION)
-#define BSDF_EVENT_GLOSSY_TRANSMISSION   (BSDF_EVENT_GLOSSY   | BSDF_EVENT_TRANSMISSION)
-#define BSDF_EVENT_SPECULAR_REFLECTION   (BSDF_EVENT_SPECULAR | BSDF_EVENT_REFLECTION)
-#define BSDF_EVENT_SPECULAR_TRANSMISSION (BSDF_EVENT_SPECULAR | BSDF_EVENT_TRANSMISSION)
-
-#define BSDF_EVENT_FORCE_32_BIT 0xffffffffU
-
-#define Edf_event_type          int
-#define EDF_EVENT_NONE          0
-
-#define EDF_EVENT_EMISSION      1
-#define EDF_EVENT_FORCE_32_BIT  0xffffffffU
+typedef int Edf_event_type;
+static const Edf_event_type EDF_EVENT_NONE = 0;
+static const Edf_event_type EDF_EVENT_EMISSION = 1;
+static const Edf_event_type EDF_EVENT_FORCE_32_BIT = 0xffffffffU;
 
 /// MBSDFs can consist of two parts, which can be selected using this enumeration.
-#define Mbsdf_part               int
-#define MBSDF_DATA_REFLECTION    0
-#define MBSDF_DATA_TRANSMISSION  1
+typedef int Mbsdf_part;
+static const Mbsdf_part MBSDF_DATA_REFLECTION = 0;
+static const Mbsdf_part MBSDF_DATA_TRANSMISSION = 1;
 
 /// Input and output structure for BSDF sampling data.
 struct Bsdf_sample_data {
@@ -258,5 +250,3 @@ struct Edf_auxiliary_data
 {
     float3 k1;                      ///< input: outgoing direction
 };
-
-#endif  // MDL_TARGET_CODE_TYPES_HLSLI

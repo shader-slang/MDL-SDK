@@ -26,9 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#if !defined(MDL_RENDERER_RUNTIME_HLSLI)
-#define MDL_RENDERER_RUNTIME_HLSLI
-
 // MDL defines UV origin bottom left, D3D top left.
 // Because GLTF defines the UV origin also top left we end up flipping twice.
 // 1: from GLTF to MDL, in gltf.cpp when proccessing vertex data because it seems to be the common way.
@@ -1711,5 +1708,3 @@ Derived_float scene_data_lookup_deriv_float(
     res.dy = 0;
     return res;
 }
-
-#endif // MDL_RENDERER_RUNTIME_HLSLI

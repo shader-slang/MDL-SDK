@@ -26,9 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef MDL_DXR_EXAMPLE_COMMON_HLSL
-#define MDL_DXR_EXAMPLE_COMMON_HLSL
-
 static const float M_PI =          3.14159265358979323846;
 static const float M_ONE_OVER_PI = 0.318309886183790671538;
 static const float DIRAC = -1.0f;
@@ -90,23 +87,38 @@ cbuffer SceneConstants : register(b1)
 
 
 // Ray typed, has to match with CPU version
-#define RayType uint
-#define RAY_TYPE_RADIANCE   0
-#define RAY_TYPE_SHADOW     1
-#define RAY_TYPE_COUNT      (RAY_TYPE_SHADOW + 1)
+typedef uint RayType;
+static const RayType RAY_TYPE_RADIANCE = 0;
+static const RayType RAY_TYPE_SHADOW = 1;
+static const RayType RAY_TYPE_COUNT = (RAY_TYPE_SHADOW + 1);
 
-#define RadianceHitInfoFlags uint
-#define FLAG_NONE               0
-#define FLAG_INSIDE             1
-#define FLAG_DONE               2
-#define FLAG_FIRST_PATH_SEGMENT 4
-#define FLAG_LAST_PATH_SEGMENT  8
-#define FLAG_CAMERA_RAY        16
+typedef uint RadianceHitInfoFlags;
+static const RadianceHitInfoFlags FLAG_NONE = 0;
+static const RadianceHitInfoFlags FLAG_INSIDE = 1;
+static const RadianceHitInfoFlags FLAG_DONE = 2;
+static const RadianceHitInfoFlags FLAG_FIRST_PATH_SEGMENT = 4;
+static const RadianceHitInfoFlags FLAG_LAST_PATH_SEGMENT = 8;
+static const RadianceHitInfoFlags FLAG_CAMERA_RAY = 16;
 
-void add_flag(inout uint flags, uint to_add) { flags |= to_add; }
-void toggle_flag(inout uint flags, uint to_toggle) { flags ^= to_toggle; }
-void remove_flag(inout uint flags, uint to_remove) { flags &= ~to_remove; }
-bool has_flag(int flags, uint to_check) { return (flags & to_check) != 0; }
+void add_flag(inout uint flags, uint to_add)
+{
+    flags |= to_add; 
+}
+
+void toggle_flag(inout uint flags, uint to_toggle)
+{
+    flags ^= to_toggle;
+}
+
+void remove_flag(inout uint flags, uint to_remove)
+{
+    flags &= ~to_remove; 
+}
+
+bool has_flag(int flags, uint to_check)
+{
+    return (flags & to_check) != 0;
+}
 
 // payload for RAY_TYPE_RADIANCE
 struct RadianceHitInfo
@@ -146,22 +158,22 @@ float3 encode_errors(float3 color)
 //-------------------------------------------------------------------------------------------------
 
 /// interpolation of the data over the primitive
-#define SceneDataInterpolationMode uint
-#define SCENE_DATA_INTERPOLATION_MODE_NONE      0
-#define SCENE_DATA_INTERPOLATION_MODE_LINEAR    1
-#define SCENE_DATA_INTERPOLATION_MODE_NEAREST   2
+typedef uint SceneDataInterpolationMode;
+static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_NONE = 0;
+static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_LINEAR = 1;
+static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_NEAREST = 2;
 
 /// Scope a scene data element belongs to
-#define SceneDataKind uint
-#define SCENE_DATA_KIND_NONE        0
-#define SCENE_DATA_KIND_VERTEX      1
-#define SCENE_DATA_KIND_INSTANCE    2
+typedef uint SceneDataKind;
+static const SceneDataKind SCENE_DATA_KIND_NONE = 0;
+static const SceneDataKind SCENE_DATA_KIND_VERTEX = 1;
+static const SceneDataKind SCENE_DATA_KIND_INSTANCE = 2;
 
 /// Basic element type of the scene data
-#define SceneDataElementType uint
-#define SCENE_DATA_ELEMENT_TYPE_FLOAT   0
-#define SCENE_DATA_ELEMENT_TYPE_INT     1
-#define SCENE_DATA_ELEMENT_TYPE_COLOR   2
+typedef uint SceneDataElementType;
+static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_FLOAT = 0;
+static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_INT = 1;
+static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_COLOR = 2;
 
 // Infos about the interleaved vertex layout (compressed)
 struct SceneDataInfo
@@ -228,14 +240,14 @@ struct DXRRendererState
 };
 
 // use this structure as renderer state in the MDL shading state material
-#define RENDERER_STATE_TYPE DXRRendererState
+typedef DXRRendererState RENDERER_STATE_TYPE; 
 
 // Positions, normals, and tangents are mandatory for this renderer. The vertex buffer always
 // contains this data at the beginning of the (interleaved) per vertex data.
-#define VertexByteOffset uint
-#define VERT_BYTEOFFSET_POSITION    0
-#define VERT_BYTEOFFSET_NORMAL      12
-#define VERT_BYTEOFFSET_TANGENT     24
+typedef uint VertexByteOffset;
+static const VertexByteOffset VERT_BYTEOFFSET_POSITION = 0;
+static const VertexByteOffset VERT_BYTEOFFSET_NORMAL = 12;
+static const VertexByteOffset VERT_BYTEOFFSET_TANGENT = 24;
 
 //-------------------------------------------------------------------------------------------------
 // random number generator based on the Optix SDK
@@ -312,11 +324,10 @@ struct Environment_sample_data
     float q;
 };
 
-float3 environment_evaluate(
-    Texture2D<float4> lat_long_tex,
-    StructuredBuffer<Environment_sample_data> sample_buffer,
-    float3 normalized_dir,
-    out float pdf)
+float3 environment_evaluate(Texture2D<float4> lat_long_tex,
+                            StructuredBuffer<Environment_sample_data> sample_buffer,
+                            float3 normalized_dir,
+                            out float pdf)
 {
     // assuming lat long
     float u = atan2(normalized_dir.z, normalized_dir.x) * 0.5f * M_ONE_OVER_PI + 0.5f;
@@ -332,12 +343,11 @@ float3 environment_evaluate(
     return t * environment_intensity_factor;
 }
 
-float3 environment_sample(
-    Texture2D<float4> lat_long_tex,
-    StructuredBuffer<Environment_sample_data> sample_buffer,
-    inout uint seed,
-    out float3 to_light,
-    out float pdf)
+float3 environment_sample(Texture2D<float4> lat_long_tex,
+                          StructuredBuffer<Environment_sample_data> sample_buffer,
+                          inout uint seed,
+                          out float3 to_light,
+                          out float pdf)
 {
     float3 xi;
     xi.x = rnd(seed);
@@ -387,8 +397,7 @@ float3 environment_sample(
 
     // lookup filtered value and calculate pdf
     const float v = theta * M_ONE_OVER_PI;
-    float3 t = lat_long_tex.SampleLevel(
-        sampler_latlong, float2(u, v), /*mipmaplevel=*/ 0.0f, /*mipoffset=*/0).xyz;
+    float3 t = lat_long_tex.SampleLevel(sampler_latlong, float2(u, v), /*mipmaplevel=*/ 0.0f, /*mipoffset=*/0).xyz;
     pdf = max(t.x, max(t.y, t.z)) * environment_inv_integral;
     return t * environment_intensity_factor;
 }
@@ -413,5 +422,3 @@ float3 offset_ray(const float3 p, const float3 n)
                   abs(p.y) < origin ? p.y + float_scale * n.y : p_i.y,
                   abs(p.z) < origin ? p.z + float_scale * n.z : p_i.z);
 }
-
-#endif
