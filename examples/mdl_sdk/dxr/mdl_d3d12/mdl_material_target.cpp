@@ -836,11 +836,6 @@ bool Mdl_material_target::generate()
     printf("[I] VOLUME ABSORPTION: %d\n", interface_data.has_volume_absorption);
     printf("[I] THIN WALLED: %d\n", interface_data.can_be_thin_walled);
 
-    m_hlsl_source_code += "#define MDL_HAS_SURFACE_SCATTERING 1\n";
-    m_hlsl_source_code += "#define MDL_HAS_BACKFACE_SCATTERING 0\n";
-    m_hlsl_source_code += "#define MDL_CAN_BE_THIN_WALLED 1\n";
-    m_hlsl_source_code += "\n";
-
     // TODO: force use 32 texture results...
     m_hlsl_source_code += "#define MDL_NUM_TEXTURE_RESULTS " +
         std::to_string(m_app->get_options()->texture_results_cache_size) + "\n";

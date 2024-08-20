@@ -347,11 +347,7 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
 
     // thin-walled materials are allowed to have a different back side
     // buy the can't have volumetric properties
-    #if (MDL_CAN_BE_THIN_WALLED == 1)
-        const bool thin_walled = mdl_thin_walled(mdl_state);
-    #else
-        const bool thin_walled = false;
-    #endif
+	const bool thin_walled = mdl_thin_walled(mdl_state);
 
     // for thin-walled materials there is no 'inside'
     const bool inside = has_flag(payload.flags, FLAG_INSIDE);
@@ -378,23 +374,9 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
         eval_data.ior2 = ior2;
         eval_data.k1 = -WorldRayDirection();
         eval_data.k2 = to_light;
-        #if (MDL_DF_HANDLE_SLOT_MODE != -1)
-            eval_data.handle_offset = 0;
-        #endif
 
-        // use backface instead of surface scattering?
-        if (thin_walled && mdl_state.renderer_state.hit_backface && (MDL_HAS_BACKFACE_SCATTERING == 1))
-        {
-            #if (MDL_HAS_BACKFACE_SCATTERING == 1)
-                mdl_backface_scattering_evaluate(eval_data, mdl_state);
-            #endif
-        }
-        else
-        {
-            #if (MDL_HAS_SURFACE_SCATTERING == 1)
-                mdl_surface_scattering_evaluate(eval_data, mdl_state);
-            #endif
-        }
+        // Always use surface scattering
+		mdl_surface_scattering_evaluate(eval_data, mdl_state);
 
         // compute lighting for this light
         if(eval_data.pdf > 0.0f)
@@ -405,13 +387,8 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
 
             // sample weight
             const float3 w = payload.weight * radiance_over_pdf * mis_weight;
-            #if (MDL_DF_HANDLE_SLOT_MODE == -1)
-                contribution += w * eval_data.bsdf_diffuse;
-                contribution += w * eval_data.bsdf_glossy;
-            #else
-                contribution += w * eval_data.bsdf_diffuse[0];
-                contribution += w * eval_data.bsdf_glossy[0];
-            #endif
+			contribution += w * eval_data.bsdf_diffuse;
+			contribution += w * eval_data.bsdf_glossy;
         }
     }
 
@@ -427,19 +404,8 @@ void MDL_RADIANCE_CLOSEST_HIT_PROGRAM(inout RadianceHitInfo payload, Attributes 
     sample_data.k1 = -WorldRayDirection();      // outgoing direction
     sample_data.xi = rnd4(payload.seed);        // random sample number
 
-    // use backface instead of surface scattering?
-    if (thin_walled && mdl_state.renderer_state.hit_backface && (MDL_HAS_BACKFACE_SCATTERING == 1))
-    {
-        #if (MDL_HAS_BACKFACE_SCATTERING == 1)
-            mdl_backface_scattering_sample(sample_data, mdl_state);
-        #endif
-    }
-    else
-    {
-        #if (MDL_HAS_SURFACE_SCATTERING == 1)
-            mdl_surface_scattering_sample(sample_data, mdl_state);
-        #endif
-    }
+    // Always use surface scattering
+	mdl_surface_scattering_sample(sample_data, mdl_state);
 
     // stop on absorb
     if (sample_data.event_type == BSDF_EVENT_ABSORB)

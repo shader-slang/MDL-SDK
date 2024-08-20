@@ -29,14 +29,6 @@
 #if !defined(MDL_TARGET_CODE_TYPES_HLSLI)
 #define MDL_TARGET_CODE_TYPES_HLSLI
 
-// compiler constants defined from outside:
-// - MDL_NUM_TEXTURE_RESULTS
-// - USE_DERIVS
-// - MDL_DF_HANDLE_SLOT_MODE (-1, 1, 2, 4, or 8)
-#if !defined(MDL_DF_HANDLE_SLOT_MODE)
-    #define MDL_DF_HANDLE_SLOT_MODE -1
-#endif
-
 #if defined(MDL_NUM_TEXTURE_RESULTS) && (MDL_NUM_TEXTURE_RESULTS > 0)
     #define USE_TEXTURE_RESULTS
 #endif
@@ -288,17 +280,8 @@ struct Bsdf_evaluate_data {
     float3 k1;                      ///< mutual input: outgoing direction
 
     float3 k2;                      ///< input: incoming direction
-    #if (MDL_DF_HANDLE_SLOT_MODE != -1)
-        int handle_offset;          ///< output: handle offset to allow the evaluation of more then
-                                    ///  DF_HANDLE_SLOTS handles, calling 'evaluate' multiple times
-    #endif
-    #if (MDL_DF_HANDLE_SLOT_MODE == -1)
-        float3 bsdf_diffuse;        ///< output: (diffuse part of the) bsdf * dot(normal, k2)
-        float3 bsdf_glossy;         ///< output: (glossy part of the) bsdf * dot(normal, k2)
-    #else
-        float3 bsdf_diffuse[MDL_DF_HANDLE_SLOT_MODE]; ///< output: (diffuse) bsdf * dot(normal, k2)
-        float3 bsdf_glossy[MDL_DF_HANDLE_SLOT_MODE];  ///< output: (glossy) bsdf * dot(normal, k2)
-    #endif
+    float3 bsdf_diffuse;            ///< output: (diffuse part of the) bsdf * dot(normal, k2)
+    float3 bsdf_glossy;             ///< output: (glossy part of the) bsdf * dot(normal, k2)
     float pdf;                      ///< output: pdf (non-projected hemisphere)
 };
 
@@ -318,27 +301,12 @@ struct Bsdf_auxiliary_data {
     float3 ior2;                    ///< mutual input: IOR other side
     float3 k1;                      ///< mutual input: outgoing direction
 
-    #if (MDL_DF_HANDLE_SLOT_MODE != -1)
-        int handle_offset;          ///< output: handle offset to allow the evaluation of more then
-                                    ///  DF_HANDLE_SLOTS handles, calling 'auxiliary' multiple times
-    #endif
-    #if (MDL_DF_HANDLE_SLOT_MODE == -1)
-        float3 albedo_diffuse;      ///< output: (diffuse part of the) albedo
-        float3 albedo_glossy;       ///< output: (glossy part of the) albedo
-        float3 normal;              ///< output: normal
-    #else
-        float3 albedo_diffuse[MDL_DF_HANDLE_SLOT_MODE]; ///< output: (diffuse part of the) albedo
-        float3 albedo_glossy[MDL_DF_HANDLE_SLOT_MODE];  ///< output: (glossy part of the) albedo
-        float3 normal[MDL_DF_HANDLE_SLOT_MODE];         ///< output: normal
-    #endif
+	float3 albedo_diffuse;          ///< output: (diffuse part of the) albedo
+	float3 albedo_glossy;           ///< output: (glossy part of the) albedo
+	float3 normal;                  ///< output: normal
 
-    #if (MDL_DF_HANDLE_SLOT_MODE == -1)
-        float3 roughness;                          ///< output: glossy rougness_u,
-                                                   ///  glossy roughness_v, bsdf_weight
-    #else
-        float3 roughness[MDL_DF_HANDLE_SLOT_MODE]; ///< output: glossy rougness_u, 
-                                                   ///  glossy roughness_v, bsdf_weight
-    #endif
+    float3 roughness;               ///< output: glossy rougness_u,
+                                    ///  glossy roughness_v, bsdf_weight
 };
 
 /// Input and output structure for EDF sampling data.
@@ -356,16 +324,8 @@ struct Edf_sample_data
 struct Edf_evaluate_data
 {
     float3 k1;                      ///< input: outgoing direction
-    #if (MDL_DF_HANDLE_SLOT_MODE != -1)
-        int handle_offset;          ///< output: handle offset to allow the evaluation of more then
-                                    ///  DF_HANDLE_SLOTS handles, calling 'evaluate' multiple times
-    #endif
     float cos;                      ///< output: dot(normal, k1)
-    #if (MDL_DF_HANDLE_SLOT_MODE == -1)
-        float3 edf;                 ///< output: edf
-    #else
-        float3 edf[MDL_DF_HANDLE_SLOT_MODE]; ///< output: edf
-    #endif
+    float3 edf;                     ///< output: edf
     float pdf;                      ///< output: pdf (non-projected hemisphere)
 };
 
@@ -380,36 +340,6 @@ struct Edf_pdf_data
 struct Edf_auxiliary_data
 {
     float3 k1;                      ///< input: outgoing direction
-    #if (MDL_DF_HANDLE_SLOT_MODE != -1)
-        int handle_offset;          ///< output: handle offset to allow the evaluation of more then
-                                    ///  DF_HANDLE_SLOTS handles, calling 'auxiliary' multiple times
-    #endif
-
-    // reserved for future use
 };
-
-// Modifies state.normal with the result of "geometry.normal" of the material.
-/*void Bsdf_init_function(
-    inout Shading_state_material state,
-    out float4 texture_results[16],
-    uint arg_block_index);
-
-void Bsdf_sample_function(
-    inout Bsdf_sample_data data,
-    Shading_state_material state,
-    float4 texture_results[16],
-    uint arg_block_index);
-
-void Bsdf_evaluate_function(
-    inout Bsdf_evaluate_data data,
-    Shading_state_material state,
-    float4 texture_results[16],
-    uint arg_block_index);
-
-void Bsdf_pdf_function(
-    inout Bsdf_evaluate_data data,
-    Shading_state_material state,
-    float4 texture_results[16],
-    uint arg_block_index);*/
 
 #endif  // MDL_TARGET_CODE_TYPES_HLSLI
