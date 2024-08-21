@@ -134,6 +134,14 @@ target_add_content(TARGET ${PROJECT_NAME}
         "content/mdl_hit_programs.hlsl"
         "content/miss_programs.hlsl"
         "content/ray_gen_program.hlsl"
+        
+        "content/slangified/common.slang"
+        "content/slangified/mdl_renderer_runtime.slang"
+        "content/slangified/mdl_target_code_types.slang"
+        "content/slangified/mdl_hit_programs.slang"
+        "content/slangified/miss_programs.slang"
+        "content/slangified/ray_gen_program.slang"
+        
         "content/gltf/sphere/sphere.bin"
         "content/gltf/sphere/sphere.gltf"
         "content/hdri/hdrihaven_teufelsberg_inner_2k.exr")
