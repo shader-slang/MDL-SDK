@@ -35,11 +35,6 @@
 #include <example_shared.h>
 #include <d3d12shader.h>
 
-#ifdef MDL_ENABLE_SLANG
-#include <slang.h>
-#include <slang-com-ptr.h>
-#endif
-
 namespace mi { namespace examples { namespace mdl_d3d12
 {
 

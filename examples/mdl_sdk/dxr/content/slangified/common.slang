@@ -147,12 +147,6 @@ struct Attributes
     float2 bary;
 };
 
-// Helper to make NaN and INF values visible in the output image.
-float3 encode_errors(float3 color)
-{
-    return any(isnan(color) | isinf(color)) ? float3(0.0f, 0.0f, 1.0e+30f) : color;
-}
-
 //-------------------------------------------------------------------------------------------------
 // Scene Data API
 //-------------------------------------------------------------------------------------------------
