@@ -876,6 +876,11 @@ const mi::neuraylib::ITarget_code* Mdl_material_target::get_generated_target() c
 
 // ------------------------------------------------------------------------------------------------
 
+static void slang_diagnostics_callback(const char *message, void *data)
+{
+    fprintf(stderr, "[S] %s", message);
+}
+
 bool Mdl_material_target::compile()
 {
     if (!m_compilation_required)
@@ -887,144 +892,53 @@ bool Mdl_material_target::compile()
     // generate has be called first
     if (m_generation_required)
     {
-        log_error("Compiling HLSL target code not possible before generation. Hash: " +
-            m_compiled_material_hash, SRC);
+        log_error("Compiling HLSL target code not possible before generation. Hash: " + m_compiled_material_hash, SRC);
         return false;
     }
 
-    // initialization for slang
+	printf("[S] Injected stages\n");
+
+	// TODO: need to run the timer
+
+	// compile with slang and dxc
+	//system("slangc.exe link_unit_code.hlsl -target dxil -profile lib_6_6 -o mdl_linked_slang.dxil");
+	//printf("[S] successfully compiled with slangc\n");
+	
+	//system("dxc.exe link_unit_code.hlsl -T lib_6_6 -Fo mdl_linked_dxc.dxil");
+	//printf("[S] successfully compiled with dxc\n");
+
+	// Load DXIL artifact
+	ComPtr<IDxcUtils> utils = nullptr;
+	HRESULT r_utils = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.GetAddressOf()));
+	if (FAILED(r_utils))
     {
-        printf("[S] Initializing slang\n");
-		Slang::ComPtr <slang::IGlobalSession> session(nullptr);
-        slang_createGlobalSession(SLANG_API_VERSION, session.writeRef());
+		printf("[S] failed to create IDxcUtils instance\n");
+		return false;
+	}
+	
+	printf("[S] successfully created IDxcUtils instance\n");
 
-        printf("[S] Created global session for slang\n");
-		SlangCompileRequest* compile_request = spCreateCompileRequest(session);
-
-        printf("[S] Create compile request\n");
-        spDestroyCompileRequest(compile_request);
-
-        printf("[S] Destroyed compile request\n");
-    }
-
-    // compile to DXIL
+	ComPtr<IDxcBlobEncoding> dxc_dxil_blob;
+	HRESULT r_blob = utils->LoadFile(L"mdl_linked_dxc.dxil", nullptr, dxc_dxil_blob.GetAddressOf());
+	if (FAILED(r_blob))
     {
-        auto p = m_app->get_profiling().measure("compiling HLSL to DXIL");
-        std::map<std::string, std::string> defines;
+		printf("[S] failed to load DXIL blob\n");
+		return false;
+	}
 
-        // use the material name of the first material
-        std::string pseudo_file_name = "link_unit_code";
-        if (m_materials.size() > 0)
-        {
-            for (const auto& it : m_materials)
-            {
-                if (!it.second)
-                    continue;
-                std::string mat_name = it.second->get_material_desciption().get_scene_name();
-                std::replace(mat_name.begin(), mat_name.end(), ' ', '_');
-                mat_name.erase(std::remove_if(mat_name.begin(), mat_name.end(),
-                    [](auto const& c) { return !std::isalnum(c) && c != '_'; }), mat_name.end());
-                if (!mat_name.empty())
-                    pseudo_file_name = mat_name;
-                break;
-            }
-        }
+	printf("[S] successfully loaded DXIL blob\n");
 
-        // run the shader compiler to produce one or multiple dxil libraries
-        Shader_compiler compiler(m_app);
-        m_dxil_compiled_libraries = compiler.compile_shader_library_from_string(
-            m_app->get_options(),
-            get_hlsl_source_code(), pseudo_file_name + "_" + get_shader_name_suffix(),
-            &defines,
-            { m_radiance_closest_hit_name, m_radiance_any_hit_name, m_shadow_any_hit_name });
-    }
+	std::vector <std::string> entry_points {
+		m_radiance_closest_hit_name,
+		m_radiance_any_hit_name,
+		m_shadow_any_hit_name
+	};
 
-    bool success = !m_dxil_compiled_libraries.empty();
-    m_compilation_required = !success;
+	printf("[S] created shader library\n");
 
-    // write the shader cache if enabled
-    while (success && m_sdk->get_options().enable_shader_cache)
-    {
-        auto p = m_app->get_profiling().measure("writing to shader cache");
-
-        // create context to get results from the serialization
-        mi::base::Handle<mi::neuraylib::IMdl_execution_context> context(m_sdk->create_context());
-
-        // discard the instance specific data, the argument blocks are generated from scratch
-        context->set_option("serialize_class_instance_data", false);
-
-        // start the actual serialization
-        mi::base::Handle<const mi::neuraylib::IBuffer> tci_buffer(
-            m_target_code->serialize(context.get()));
-
-        if (!m_sdk->log_messages("MDL target code serialization failed.", context.get(), SRC))
-            return false;
-
-        // open cache file
-        const std::string filename = compute_shader_cache_filename(
-            *m_app->get_options(), m_compiled_material_hash, true);
-
-        // create the parent folder if required
-        const std::string folder = mi::examples::io::dirname(filename);
-        if (!mi::examples::io::mkdir(folder, true))
-        {
-            log_warning("Failed to create shader cache folder: " + folder);
-            break;
-        }
-
-        std::ofstream file(filename, std::ios::out | std::ios::binary);
-        if (!file.is_open())
-        {
-            log_warning("Failed to write shader cache: " + filename);
-            break;
-        }
-
-        // write target code information
-        const size_t tci_buffer_size = tci_buffer->get_data_size();
-        const mi::Uint8* tci_buffer_data = tci_buffer->get_data();
-        file.write(reinterpret_cast<const char*>(&tci_buffer_size), sizeof(size_t));
-        file.write(reinterpret_cast<const char*>(tci_buffer_data), tci_buffer_size);
-
-        // write the interface information
-        const Mdl_material_target_interface& interface_data =
-            m_materials.begin()->second->get_target_interface();
-        file.write(reinterpret_cast<const char*>(
-            &interface_data), sizeof(Mdl_material_target_interface));
-
-        // write dxil libraries
-        // with support for slang the we can have multiple libraries per material, i.e., one
-        // per entry point. To get a mapping between entry point and library we also need the
-        // exported symbol name which makes the de/serialization a bit more elaborate.
-
-        size_t num_libraries = m_dxil_compiled_libraries.size();
-        file.write(reinterpret_cast<const char*>(&num_libraries), sizeof(size_t));
-
-        for (size_t l = 0; l < num_libraries; ++l)
-        {
-            // first, the symbols, starting with the number of symbols ...
-            const std::vector<std::string>& exports = m_dxil_compiled_libraries[l].get_exports();
-            size_t num_exp_symbols = exports.size();
-            file.write(reinterpret_cast<const char*>(&num_exp_symbols), sizeof(size_t));
-            for (size_t s = 0; s < num_exp_symbols; ++s)
-            {
-                // ... and then for each, string length and string data
-                size_t symbol_size = exports[s].size();
-                file.write(reinterpret_cast<const char*>(&symbol_size), sizeof(size_t));
-                file.write(exports[s].data(), symbol_size);
-            }
-
-            // the dxil blob
-            const size_t dxil_blob_buffer_size = m_dxil_compiled_libraries[l].get_dxil_library()->GetBufferSize();
-            const LPVOID dxil_blob_buffer = m_dxil_compiled_libraries[l].get_dxil_library()->GetBufferPointer();
-            file.write(reinterpret_cast<const char*>(&dxil_blob_buffer_size), sizeof(size_t));
-            file.write(reinterpret_cast<const char*>(dxil_blob_buffer), dxil_blob_buffer_size);
-        }
-
-        file.close();
-        break;
-    }
-
-    return success;
+	m_dxil_compiled_libraries.emplace_back(dxc_dxil_blob.Get(), entry_points);
+    m_compilation_required = false;
+    return true;
 }
 
 }}} // mi::examples::mdl_d3d12
