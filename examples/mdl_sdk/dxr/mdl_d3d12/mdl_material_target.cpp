@@ -821,9 +821,6 @@ bool Mdl_material_target::generate()
     // bind read-only data segment to shader
     m_resource_descriptor_table.register_srv(0, 2, 0);
 
-    // generate some dxr specific shader code to hook things up
-    // -------------------------------------------------------------------
-
     // generate the actual shader code with the help of some snippets
     m_hlsl_source_code.clear();
 
@@ -837,16 +834,6 @@ bool Mdl_material_target::generate()
     printf("[I] SCENE_DATA_ID_TEXCOORD0  %2d (=1)\n", map_string_constant("TEXCOORD_0"));
     printf("[I] MDL_NUM_TEXTURE_RESULTS  %2u (=1)\n", m_app->get_options()->texture_results_cache_size);
 
-    m_hlsl_source_code += "#include \"content/common.hlsl\"\n";
-    m_hlsl_source_code += "#include \"content/mdl_target_code_types.hlsl\"\n";
-    m_hlsl_source_code += "#include \"content/mdl_renderer_runtime.hlsl\"\n\n";
-
-    m_hlsl_source_code += m_target_code->get_code();
-
-    // this last snipped contains the actual hit shader and the renderer logic
-    // ideally, this is the only part that is handwritten
-    m_hlsl_source_code += "\n\n#include \"content/mdl_hit_programs.hlsl\"\n\n";
-
     // write to file for debugging purpose
     std::ofstream file_stream;
 
@@ -854,28 +841,27 @@ bool Mdl_material_target::generate()
     file_stream.open(mi::examples::io::get_executable_folder() + "/link_unit_code.hlsl");
     if (file_stream)
     {
+        // Only for reference
+        std::string hlsl_source_code;
+		m_hlsl_source_code += "#include \"content/common.hlsl\"\n";
+		m_hlsl_source_code += "#include \"content/mdl_target_code_types.hlsl\"\n";
+		m_hlsl_source_code += "#include \"content/mdl_renderer_runtime.hlsl\"\n\n";
+		m_hlsl_source_code += m_target_code->get_code();
+		m_hlsl_source_code += "\n\n#include \"content/mdl_hit_programs.hlsl\"\n\n";
         file_stream << m_hlsl_source_code.c_str();
         file_stream.close();
     }
     
     // slang source code
     // TODO: compile ray generation and miss shaders with slangc as well...
-    file_stream.open(mi::examples::io::get_executable_folder() + "/content/slangified/link_unit_code.slang");
+    file_stream.open(mi::examples::io::get_executable_folder() + "/content/slangified/material.slang");
     if (file_stream)
     {
-        // create slang source code
         std::string slang_source_code;
-
-		slang_source_code += "#include \"common.slang\"\n";
-		slang_source_code += "#include \"mdl_target_code_types.slang\"\n";
-		slang_source_code += "#include \"mdl_renderer_runtime.slang\"\n\n";
-
-		slang_source_code += m_target_code->get_code();
-
-		// this last snipped contains the actual hit shader and the renderer logic
-		// ideally, this is the only part that is handwritten
-		slang_source_code += "\n\n#include \"mdl_hit_programs.slang\"\n\n";
-
+        slang_source_code += "import mdl_renderer_runtime;\n";
+        slang_source_code += "import mdl_target_code_types;\n";
+        slang_source_code += "\n";
+        slang_source_code += m_target_code->get_code();
         file_stream << slang_source_code.c_str();
         file_stream.close();
     }
@@ -942,7 +928,7 @@ bool Mdl_material_target::compile()
 	printf("[S] successfully created IDxcUtils instance\n");
 
 	ComPtr<IDxcBlobEncoding> dxc_dxil_blob;
-	HRESULT r_blob = utils->LoadFile(L"mdl_linked_dxc.dxil", nullptr, dxc_dxil_blob.GetAddressOf());
+	HRESULT r_blob = utils->LoadFile(L"content/slangified/mdl_linked_slang.dxil", nullptr, dxc_dxil_blob.GetAddressOf());
 	if (FAILED(r_blob))
     {
 		printf("[S] failed to load DXIL blob\n");

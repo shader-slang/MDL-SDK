@@ -26,6 +26,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+import common;
+import mdl_target_code_types;
+
 /// Information passed to GPU for mapping id requested in the runtime functions to texture
 /// views of the corresponding type.
 struct Mdl_texture_info

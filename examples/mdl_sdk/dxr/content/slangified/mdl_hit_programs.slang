@@ -26,6 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+import common;
+import material;
+import mdl_target_code_types;
+import mdl_renderer_runtime;
+
 typedef int MaterialFlags;
 static const MaterialFlags MATERIAL_FLAG_NONE = 0;
 static const MaterialFlags MATERIAL_FLAG_OPAQUE = 1 << 0; // allows to skip opacity evaluation
