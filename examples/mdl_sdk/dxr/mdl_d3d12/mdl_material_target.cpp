@@ -887,72 +887,80 @@ const mi::neuraylib::ITarget_code* Mdl_material_target::get_generated_target() c
 // ------------------------------------------------------------------------------------------------
 
 struct {
-    bool loaded = false;
-} g_shader_modules;
+    Slang::ComPtr<slang::IGlobalSession> global_session;
+    bool __load_global_session() {
+        Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
+        if (SLANG_FAILED(r_global_session)) {
+            printf("[S] failed to create the global session\n");
+            return false;
+        }
 
-bool Mdl_material_target::compile()
-{
-    if (!m_compilation_required)
-    {
-        log_info("Target code does not need compilation. Hash: " + m_compiled_material_hash, SRC);
+        printf("[S] successfully loaded the global session\n");
         return true;
     }
 
-    // generate has be called first
+    Slang::ComPtr<slang::ISession> session;
+    bool __load_session() {
+        // Local slang session
+        std::string slang_folder = mi::examples::io::get_executable_folder();
+        slang_folder += "/content";
+        slang_folder += "/slangified";
+        
+        const char* slang_folder_cstr = slang_folder.c_str();
+
+        slang::TargetDesc target_desc = {};
+        target_desc.format = SLANG_DXIL;
+        target_desc.profile = g_slang.global_session->findProfile("lib_6_6");
+
+        slang::SessionDesc desc {};
+        desc.targets = &target_desc;
+        desc.targetCount = 1;
+        desc.searchPaths = &slang_folder_cstr;
+        desc.searchPathCount = 1;
+
+        Slang::Result r_session = g_slang.global_session->createSession(desc, session.writeRef());
+        if (SLANG_FAILED(r_session))
+        {
+            printf("[S] failed to create the local session\n");
+            return false;
+        }
+
+        printf("[S] successfully loaded the local session\n");
+        printf("  search path: %s\n", slang_folder.c_str());
+        return true;
+    }
+
+    bool loaded = false;
+    bool load() {
+        if(!__load_global_session()) return false;
+        if(!__load_session()) return false;
+        return (loaded = true);
+    }
+} static g_slang;
+
+bool Mdl_material_target::compile()
+{
+    // Global slang state initialization
+    if (!g_slang.loaded)
+    {
+        if (!g_slang.load())
+            return false;
+    }
+
+    // Generate has be called first
     if (m_generation_required)
     {
-        log_error("Compiling HLSL target code not possible before generation. Hash: " + m_compiled_material_hash, SRC);
+        log_error("Compiling target code not possible before generation. Hash: " + m_compiled_material_hash, SRC);
         return false;
     }
 
     // Always clear the libraries
     m_dxil_compiled_libraries.clear();
 
-    // Global slang session
-    Slang::ComPtr<slang::IGlobalSession> global_session;
-
-    Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
-    if (SLANG_FAILED(r_global_session)) {
-        printf("[S] failed to create the global session\n");
-        return false;
-    }
-
-    printf("[S] successfully loaded the global session\n");
-
-    // Local slang session
-    std::string slang_folder = mi::examples::io::get_executable_folder();
-    slang_folder += "/content";
-    slang_folder += "/slangified";
-        
-    Slang::ComPtr<slang::ISession> session;
-
-    slang::TargetDesc target_desc = {};
-    target_desc.format = SLANG_DXIL;
-    target_desc.profile = global_session->findProfile("lib_6_6");
-
-    slang::SessionDesc desc {};
-    
-    desc.targets = &target_desc;
-    desc.targetCount = 1;
-
-    const char* slang_folder_cstr = slang_folder.c_str();
-    desc.searchPaths = &slang_folder_cstr;
-    desc.searchPathCount = 1;
-
-    Slang::Result r_session = global_session->createSession(desc, session.writeRef());
-    if (SLANG_FAILED(r_session))
-    {
-        printf("[S] failed to create the local session\n");
-        return false;
-    }
-
-    printf("[S] successfully loaded the local session\n");
-    printf("  search path: %s\n", slang_folder.c_str());
-        
     // Module with entry points (TODO: precompile)
     Slang::ComPtr<slang::IBlob> diagnostics;
 
-    slang::IModule* mdl_hit_programs = session->loadModule("mdl_hit_programs", diagnostics.writeRef());
+    slang::IModule* mdl_hit_programs = g_slang.session->loadModule("mdl_hit_programs", diagnostics.writeRef());
     if (!mdl_hit_programs)
     {
         printf("[S] failed to load hit programs\n");
@@ -964,6 +972,8 @@ bool Mdl_material_target::compile()
     for (auto entry : { m_radiance_closest_hit_name,
                         m_radiance_any_hit_name,
                         m_shadow_any_hit_name }) {
+        auto p = m_app->get_profiling().measure("compiling slang shaders for " + entry);
+
         // Find the entry point
         Slang::ComPtr<slang::IEntryPoint> entry_point;
 
@@ -973,6 +983,8 @@ bool Mdl_material_target::compile()
             printf("[S] failed to find program: %s\n", entry.c_str());
             return false;
         }
+
+        printf("[S] successfully found entry point: %s\n", entry.c_str());
 
         // Link the entry point 
         Slang::ComPtr<slang::IComponentType> linked;
@@ -984,7 +996,7 @@ bool Mdl_material_target::compile()
             return false;
         }
 
-        printf("[S] successfully linked modules (%p)\n", linked.get());
+        printf("[S] successfully linked modules\n");
 
         // Generate the DXIL blob
         Slang::ComPtr<slang::IBlob> dxil_blob;
