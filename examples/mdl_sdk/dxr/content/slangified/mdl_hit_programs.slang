@@ -50,35 +50,6 @@ cbuffer Material_constants : register(b0, space3)
 // selects one light source randomly
 float3 sample_lights(Shading_state_material state, out float3 to_light, out float light_pdf, inout uint seed)
 {
-    float p_select_light = 1.0f;
-    if (point_light_enabled != 0)
-    {
-        // keep it simple and use either point light or environment light, each with the same
-        // probability. If the environment factor is zero, we always use the point light
-        // Note: see also miss shader
-        p_select_light = environment_intensity_factor > 0.0f ? 0.5f : 1.0f;
-
-        // in general, you would select the light depending on the importance of it
-        // e.g. by incorporating their luminance
-
-        // randomly select one of the lights
-        if (rnd(seed) <= p_select_light)
-        {
-            light_pdf = DIRAC; // infinity
-
-            // compute light direction and distance
-			to_light = point_light_position - state.position.val;
-
-            const float inv_distance2 = 1.0f / dot(to_light, to_light);
-            to_light *= sqrt(inv_distance2);
-
-            return point_light_intensity * inv_distance2 * 0.25f * M_ONE_OVER_PI / p_select_light;
-        }
-
-        // probability to select the environment instead
-        p_select_light = (1.0f - p_select_light);
-    }
-
     // light from the environment
     float3 radiance = environment_sample(   // (see common.hlsl)
         environment_texture,                // assuming lat long map
@@ -88,7 +59,6 @@ float3 sample_lights(Shading_state_material state, out float3 to_light, out floa
         light_pdf);
 
     // return radiance over pdf
-    light_pdf *= p_select_light;
     return radiance / light_pdf;
 }
 
