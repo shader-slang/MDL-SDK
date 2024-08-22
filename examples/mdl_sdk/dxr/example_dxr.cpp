@@ -989,6 +989,13 @@ bool Example_dxr::update_rendering_pipeline()
             const std::vector<Shader_library>& material_shaders =
                 target->get_dxil_compiled_libraries();
 
+            printf("[S] number of libraries in material shaders: %d\n", material_shaders.size());
+            for (const auto& it : material_shaders) {
+                printf("[S]   library with symbols:\n");
+                for (auto &group : it.get_exports())
+                    printf("[S]     %s\n", group.c_str());
+            }
+
             // add ray gen programs to the pipeline
             for (const auto& it : material_shaders)
                 if (!pipeline->add_library(it))

@@ -38,6 +38,7 @@
 #include "texture.h"
 
 #include "slang.h"
+#include "slang-gfx.h"
 #include "slang-com-ptr.h"
 
 #include <example_shared.h>
@@ -885,10 +886,9 @@ const mi::neuraylib::ITarget_code* Mdl_material_target::get_generated_target() c
 
 // ------------------------------------------------------------------------------------------------
 
-static void slang_diagnostics_callback(const char *message, void *data)
-{
-    fprintf(stderr, "[S] %s", message);
-}
+struct {
+    bool loaded = false;
+} g_shader_modules;
 
 bool Mdl_material_target::compile()
 {
@@ -905,48 +905,102 @@ bool Mdl_material_target::compile()
         return false;
     }
 
-	printf("[S] Injected stages\n");
+    // Global slang session
+    Slang::ComPtr<slang::IGlobalSession> global_session;
 
-	// TODO: need to run the timer
+    Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
+    if (SLANG_FAILED(r_global_session)) {
+        printf("[S] failed to create the global session\n");
+        return false;
+    }
 
-	// compile with slang and dxc
-	//system("slangc.exe link_unit_code.hlsl -target dxil -profile lib_6_6 -o mdl_linked_slang.dxil");
-	//printf("[S] successfully compiled with slangc\n");
-	
-	//system("dxc.exe link_unit_code.hlsl -T lib_6_6 -Fo mdl_linked_dxc.dxil");
-	//printf("[S] successfully compiled with dxc\n");
+    printf("[S] successfully loaded the global session\n");
 
-	// Load DXIL artifact
-	ComPtr<IDxcUtils> utils = nullptr;
-	HRESULT r_utils = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.GetAddressOf()));
-	if (FAILED(r_utils))
+    // Local slang session
+    std::string slang_folder = mi::examples::io::get_executable_folder();
+    slang_folder += "/content";
+    slang_folder += "/slangified";
+        
+    Slang::ComPtr<slang::ISession> session;
+
+    slang::TargetDesc target_desc = {};
+    target_desc.format = SLANG_DXIL;
+    target_desc.profile = global_session->findProfile("lib_6_6");
+
+    slang::SessionDesc desc {};
+    
+    desc.targets = &target_desc;
+    desc.targetCount = 1;
+
+    const char* slang_folder_cstr = slang_folder.c_str();
+    desc.searchPaths = &slang_folder_cstr;
+    desc.searchPathCount = 1;
+
+    Slang::Result r_session = global_session->createSession(desc, session.writeRef());
+    if (SLANG_FAILED(r_session))
     {
-		printf("[S] failed to create IDxcUtils instance\n");
-		return false;
-	}
-	
-	printf("[S] successfully created IDxcUtils instance\n");
+        printf("[S] failed to create the local session\n");
+        return false;
+    }
 
-	ComPtr<IDxcBlobEncoding> dxc_dxil_blob;
-	HRESULT r_blob = utils->LoadFile(L"content/slangified/mdl_linked_slang.dxil", nullptr, dxc_dxil_blob.GetAddressOf());
-	if (FAILED(r_blob))
+    printf("[S] successfully loaded the local session\n");
+    printf("  search path: %s\n", slang_folder.c_str());
+        
+    // Module with entry points (TODO: precompile)
+    Slang::ComPtr<slang::IBlob> diagnostics;
+
+    slang::IModule* mdl_hit_programs = session->loadModule("mdl_hit_programs", diagnostics.writeRef());
+    if (!mdl_hit_programs)
     {
-		printf("[S] failed to load DXIL blob\n");
-		return false;
-	}
+        printf("[S] failed to load hit programs\n");
+        printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+        return false;
+    }
 
-	printf("[S] successfully loaded DXIL blob\n");
+    // Separate Shader_library objects for each entry point
+    for (auto entry : { m_radiance_closest_hit_name,
+                        m_radiance_any_hit_name,
+                        m_shadow_any_hit_name }) {
+        // Find the entry point
+        Slang::ComPtr<slang::IEntryPoint> entry_point;
 
-	std::vector <std::string> entry_points {
-		m_radiance_closest_hit_name,
-		m_radiance_any_hit_name,
-		m_shadow_any_hit_name
-	};
+        Slang::Result r_entry = mdl_hit_programs->findEntryPointByName(entry.c_str(), entry_point.writeRef());
+        if (SLANG_FAILED(r_entry))
+        {
+            printf("[S] failed to find program: %s\n", entry.c_str());
+            return false;
+        }
 
-	printf("[S] created shader library\n");
+        // Link the entry point 
+        Slang::ComPtr<slang::IComponentType> linked;
+        Slang::Result r_linked = entry_point->link(linked.writeRef(), diagnostics.writeRef());
+        if (SLANG_FAILED(r_linked))
+        {
+            printf("[S] failed to link modules:\n");
+            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+            return false;
+        }
 
-	m_dxil_compiled_libraries.emplace_back(dxc_dxil_blob.Get(), entry_points);
+        printf("[S] successfully linked modules (%p)\n", linked.get());
+
+        // Generate the DXIL blob
+        Slang::ComPtr<slang::IBlob> dxil_blob;
+        Slang::Result r_target_code = linked->getTargetCode(0, dxil_blob.writeRef(), diagnostics.writeRef());
+        if (SLANG_FAILED(r_target_code))
+        {
+            printf("[S] failed to get DXIL target code:\n");
+            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+            return false;
+        }
+
+        printf("[S] successfully derived DXIL target code\n");
+
+        // Add to list of libraries
+        m_dxil_compiled_libraries.emplace_back((IDxcBlob*) dxil_blob.get(), std::vector <std::string> { entry });
+    }
+
     m_compilation_required = false;
+
     return true;
 }
 
