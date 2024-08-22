@@ -826,14 +826,14 @@ bool Mdl_material_target::generate()
     m_hlsl_source_code.clear();
 
     // depending on the functions selected for code generation
-    printf("[I] SURFACE SCATTERING       %2d (=1)\n", interface_data.has_surface_scattering);
-    printf("[I] SURFACE EMISSION         %2d (=0)\n", interface_data.has_surface_emission);
-    printf("[I] BACKFACE SCATTERING      %2d (=0)\n", interface_data.has_backface_scattering);
-    printf("[I] BACKFACE EMISSION        %2d (=0)\n", interface_data.has_backface_emission);
-    printf("[I] VOLUME ABSORPTION        %2d (=0)\n", interface_data.has_volume_absorption);
-    printf("[I] THIN WALLED              %2d (=1)\n", interface_data.can_be_thin_walled);
-    printf("[I] SCENE_DATA_ID_TEXCOORD0  %2d (=1)\n", map_string_constant("TEXCOORD_0"));
-    printf("[I] MDL_NUM_TEXTURE_RESULTS  %2u (=1)\n", m_app->get_options()->texture_results_cache_size);
+    printf("[S] SURFACE SCATTERING       %2d (=1)\n", interface_data.has_surface_scattering);
+    printf("[S] SURFACE EMISSION         %2d (=0)\n", interface_data.has_surface_emission);
+    printf("[S] BACKFACE SCATTERING      %2d (=0)\n", interface_data.has_backface_scattering);
+    printf("[S] BACKFACE EMISSION        %2d (=0)\n", interface_data.has_backface_emission);
+    printf("[S] VOLUME ABSORPTION        %2d (=0)\n", interface_data.has_volume_absorption);
+    printf("[S] THIN WALLED              %2d (=1)\n", interface_data.can_be_thin_walled);
+    printf("[S] SCENE_DATA_ID_TEXCOORD0  %2d (=1)\n", map_string_constant("TEXCOORD_0"));
+    printf("[S] MDL_NUM_TEXTURE_RESULTS  %2u (=1)\n", m_app->get_options()->texture_results_cache_size);
 
     // write to file for debugging purpose
     std::ofstream file_stream;
@@ -904,6 +904,9 @@ bool Mdl_material_target::compile()
         log_error("Compiling HLSL target code not possible before generation. Hash: " + m_compiled_material_hash, SRC);
         return false;
     }
+
+    // Always clear the libraries
+    m_dxil_compiled_libraries.clear();
 
     // Global slang session
     Slang::ComPtr<slang::IGlobalSession> global_session;
