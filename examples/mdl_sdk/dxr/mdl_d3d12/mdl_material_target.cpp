@@ -555,6 +555,113 @@ bool Mdl_material_target::visit_materials(std::function<bool(Mdl_material*)> act
 
 // ------------------------------------------------------------------------------------------------
 
+struct {
+    Slang::ComPtr<slang::IGlobalSession> global_session;
+    bool __load_global_session() {
+        Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
+        if (SLANG_FAILED(r_global_session)) {
+            printf("[S] failed to create the global session\n");
+            return false;
+        }
+
+        printf("[S] successfully loaded the global session\n");
+        return true;
+    }
+
+    Slang::ComPtr<slang::ISession> session;
+    bool __load_session() {
+        // Local slang session
+        std::string slang_folder = mi::examples::io::get_executable_folder();
+        slang_folder += "/content";
+        slang_folder += "/slangified";
+        
+        const char* slang_folder_cstr = slang_folder.c_str();
+
+        slang::TargetDesc target_desc = {};
+        target_desc.format = SLANG_DXIL;
+        target_desc.profile = g_slang.global_session->findProfile("lib_6_6");
+
+        slang::SessionDesc desc {};
+        desc.targets = &target_desc;
+        desc.targetCount = 1;
+        desc.searchPaths = &slang_folder_cstr;
+        desc.searchPathCount = 1;
+
+        Slang::Result r_session = g_slang.global_session->createSession(desc, session.writeRef());
+        if (SLANG_FAILED(r_session))
+        {
+            printf("[S] failed to create the local session\n");
+            return false;
+        }
+
+        printf("[S] successfully loaded the local session\n");
+        printf("  search path: %s\n", slang_folder.c_str());
+        return true;
+    }
+
+    slang::IModule* mdl_hit_programs;
+    slang::IModule* mdl_renderer_runtime;
+    slang::IModule* mdl_target_code_types;
+    slang::IModule* mdl_common;
+    bool __load_modules() {
+        Slang::ComPtr<slang::IBlob> diagnostics;
+
+        // mdl_hit_programs.slang
+        mdl_hit_programs = session->loadModule("mdl_hit_programs", diagnostics.writeRef());
+        if (!mdl_hit_programs)
+        {
+            printf("[S] failed to load hit programs\n");
+            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+            return false;
+        }
+
+        printf("[S] found hit programs shader source\n");
+
+        // mdl_renderer_runtime.slang
+        mdl_renderer_runtime = session->loadModule("mdl_renderer_runtime", diagnostics.writeRef());
+        if (!mdl_renderer_runtime)
+        {
+            printf("[S] failed to load renderer runtime programs\n");
+            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+            return false;
+        }
+
+        printf("[S] found renderer runtime shader source\n");
+        
+        // mdl_target_code_types.slang
+        mdl_target_code_types = session->loadModule("mdl_target_code_types", diagnostics.writeRef());
+        if (!mdl_target_code_types)
+        {
+            printf("[S] failed to load target code type programs\n");
+            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+            return false;
+        }
+
+        printf("[S] found target code types shader source\n");
+        
+        // common.slang
+        mdl_common = session->loadModule("common", diagnostics.writeRef());
+        if (!mdl_common)
+        {
+            printf("[S] failed to load common programs\n");
+            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+            return false;
+        }
+
+        printf("[S] found common shader source\n");
+        
+        return true;
+    }
+
+    bool loaded = false;
+    bool load() {
+        if(!__load_global_session()) return false;
+        if(!__load_session()) return false;
+        if(!__load_modules()) return false;
+        return (loaded = true);
+    }
+} static g_slang;
+
 bool Mdl_material_target::generate()
 {
     if (!m_generation_required)
@@ -886,58 +993,6 @@ const mi::neuraylib::ITarget_code* Mdl_material_target::get_generated_target() c
 
 // ------------------------------------------------------------------------------------------------
 
-struct {
-    Slang::ComPtr<slang::IGlobalSession> global_session;
-    bool __load_global_session() {
-        Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
-        if (SLANG_FAILED(r_global_session)) {
-            printf("[S] failed to create the global session\n");
-            return false;
-        }
-
-        printf("[S] successfully loaded the global session\n");
-        return true;
-    }
-
-    Slang::ComPtr<slang::ISession> session;
-    bool __load_session() {
-        // Local slang session
-        std::string slang_folder = mi::examples::io::get_executable_folder();
-        slang_folder += "/content";
-        slang_folder += "/slangified";
-        
-        const char* slang_folder_cstr = slang_folder.c_str();
-
-        slang::TargetDesc target_desc = {};
-        target_desc.format = SLANG_DXIL;
-        target_desc.profile = g_slang.global_session->findProfile("lib_6_6");
-
-        slang::SessionDesc desc {};
-        desc.targets = &target_desc;
-        desc.targetCount = 1;
-        desc.searchPaths = &slang_folder_cstr;
-        desc.searchPathCount = 1;
-
-        Slang::Result r_session = g_slang.global_session->createSession(desc, session.writeRef());
-        if (SLANG_FAILED(r_session))
-        {
-            printf("[S] failed to create the local session\n");
-            return false;
-        }
-
-        printf("[S] successfully loaded the local session\n");
-        printf("  search path: %s\n", slang_folder.c_str());
-        return true;
-    }
-
-    bool loaded = false;
-    bool load() {
-        if(!__load_global_session()) return false;
-        if(!__load_session()) return false;
-        return (loaded = true);
-    }
-} static g_slang;
-
 bool Mdl_material_target::compile()
 {
     // Global slang state initialization
@@ -957,16 +1012,20 @@ bool Mdl_material_target::compile()
     // Always clear the libraries
     m_dxil_compiled_libraries.clear();
 
-    // Module with entry points (TODO: precompile)
+    // Module with entry points
     Slang::ComPtr<slang::IBlob> diagnostics;
-
-    slang::IModule* mdl_hit_programs = g_slang.session->loadModule("mdl_hit_programs", diagnostics.writeRef());
-    if (!mdl_hit_programs)
+        
+    // materials.slang
+    // TODO: load from source in generate()
+    slang::IModule* mdl_material = g_slang.session->loadModule("material", diagnostics.writeRef());
+    if (!mdl_material)
     {
-        printf("[S] failed to load hit programs\n");
+        printf("[S] failed to material programs\n");
         printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
         return false;
     }
+        
+    printf("[S] found material shader source\n");
 
     // Separate Shader_library objects for each entry point
     for (auto entry : { m_radiance_closest_hit_name,
@@ -977,7 +1036,7 @@ bool Mdl_material_target::compile()
         // Find the entry point
         Slang::ComPtr<slang::IEntryPoint> entry_point;
 
-        Slang::Result r_entry = mdl_hit_programs->findEntryPointByName(entry.c_str(), entry_point.writeRef());
+        Slang::Result r_entry = g_slang.mdl_hit_programs->findEntryPointByName(entry.c_str(), entry_point.writeRef());
         if (SLANG_FAILED(r_entry))
         {
             printf("[S] failed to find program: %s\n", entry.c_str());
@@ -986,9 +1045,31 @@ bool Mdl_material_target::compile()
 
         printf("[S] successfully found entry point: %s\n", entry.c_str());
 
+        // Construct the linking group
+        std::vector<slang::IComponentType*> components;
+        components.push_back(entry_point);
+        components.push_back(g_slang.mdl_hit_programs);
+        components.push_back(g_slang.mdl_renderer_runtime);
+        components.push_back(g_slang.mdl_target_code_types);
+        components.push_back(g_slang.mdl_common);
+        components.push_back(mdl_material);
+
+        Slang::ComPtr<slang::IComponentType> group;
+        Slang::Result r_composed = g_slang.session->createCompositeComponentType(
+            components.data(), components.size(),
+            group.writeRef(), diagnostics.writeRef());
+
+        if (SLANG_FAILED(r_composed))
+        {
+            printf("[S] failed to construct composed program\n");
+            return false;
+        }
+
+        printf("[S] successfully constructed composed program\n");
+
         // Link the entry point 
         Slang::ComPtr<slang::IComponentType> linked;
-        Slang::Result r_linked = entry_point->link(linked.writeRef(), diagnostics.writeRef());
+        Slang::Result r_linked = group->link(linked.writeRef(), diagnostics.writeRef());
         if (SLANG_FAILED(r_linked))
         {
             printf("[S] failed to link modules:\n");
