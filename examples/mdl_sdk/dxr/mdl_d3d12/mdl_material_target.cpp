@@ -670,17 +670,20 @@ bool Slang_global_state::load_modules()
     module_common = load_module("common");
     module_types = load_module("types");
     module_lighting = load_module("lighting");
+    module_setup = load_module("setup");
 
     write_module(module_runtime, "runtime.slang-module");
     write_module(module_common, "common.slang-module");
     write_module(module_types, "types.slang-module");
     write_module(module_lighting, "lighting.slang-module");
+    write_module(module_setup, "setup.slang-module");
 
     return true
         && module_runtime
         && module_common
         && module_types
-        && module_lighting;
+        && module_lighting
+        && module_setup;
 }
 
 bool Slang_global_state::load()
@@ -1090,6 +1093,7 @@ bool Mdl_material_target::compile()
             components.push_back(g_slang.module_common);
             components.push_back(g_slang.module_types);
             components.push_back(g_slang.module_lighting);
+            components.push_back(g_slang.module_setup);
         }
 
         Slang::ComPtr<slang::IComponentType> group;

@@ -91,6 +91,7 @@ namespace mi { namespace examples { namespace mdl_d3d12
         slang::IModule* module_common = nullptr;
         slang::IModule* module_types = nullptr;
         slang::IModule* module_lighting = nullptr;
+        slang::IModule* module_setup = nullptr;
         
         bool load_modules();
 
