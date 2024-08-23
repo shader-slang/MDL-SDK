@@ -26,25 +26,27 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+module mdl_renderer_runtime;
+
 /// Information passed to GPU for mapping id requested in the runtime functions to texture
 /// views of the corresponding type.
-struct Mdl_texture_info
+public struct Mdl_texture_info
 {
     // index into the tex2d, tex3d, ... buffers, depending on the type requested
-    uint gpu_resource_array_start;
+    public uint gpu_resource_array_start;
 
     // number resources (e.g. uv-tiles) that belong to this resource
-    uint gpu_resource_array_size;
+    public uint gpu_resource_array_size;
 
     // frame number of the first texture/uv-tile
-    int gpu_resource_frame_first;
+    public int gpu_resource_frame_first;
 
     // coordinate of the left bottom most uv-tile (also bottom left corner)
-    int2 gpu_resource_uvtile_min;
+    public int2 gpu_resource_uvtile_min;
 
     // in case of uv-tiled textures, required to calculate a linear index (u + v * width
-    uint gpu_resource_uvtile_width;
-    uint gpu_resource_uvtile_height;
+    public uint gpu_resource_uvtile_width;
+    public uint gpu_resource_uvtile_height;
 
     // get the last frame of an animated texture
     int get_last_frame()

@@ -30,6 +30,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 
 #include "base_application.h"
 #include "descriptor_heap.h"
@@ -555,6 +556,11 @@ bool Mdl_material_target::visit_materials(std::function<bool(Mdl_material*)> act
 
 // ------------------------------------------------------------------------------------------------
 
+static bool ends_with(std::string_view str, std::string_view suffix)
+{
+    return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 struct {
     Slang::ComPtr<slang::IGlobalSession> global_session;
     bool __load_global_session() {
@@ -569,13 +575,14 @@ struct {
     }
 
     Slang::ComPtr<slang::ISession> session;
+    std::filesystem::path slang_folder;
     bool __load_session() {
         // Local slang session
-        std::string slang_folder = mi::examples::io::get_executable_folder();
-        slang_folder += "/content";
-        slang_folder += "/slangified";
+        slang_folder = mi::examples::io::get_executable_folder();
+        slang_folder /= "content";
+        slang_folder /= "slangified";
         
-        const char* slang_folder_cstr = slang_folder.c_str();
+        const char* slang_folder_cstr = slang_folder.string().c_str();
 
         slang::TargetDesc target_desc = {};
         target_desc.format = SLANG_DXIL;
@@ -599,58 +606,66 @@ struct {
         return true;
     }
 
-    slang::IModule* mdl_hit_programs;
-    slang::IModule* mdl_renderer_runtime;
-    slang::IModule* mdl_target_code_types;
-    slang::IModule* mdl_common;
-    bool __load_modules() {
+    slang::IModule* load_module(const char* name) {
         Slang::ComPtr<slang::IBlob> diagnostics;
 
-        // mdl_hit_programs.slang
-        mdl_hit_programs = session->loadModule("mdl_hit_programs", diagnostics.writeRef());
-        if (!mdl_hit_programs)
+        slang::IModule* module = session->loadModule(name, diagnostics.writeRef());
+        if (!module)
         {
-            printf("[S] failed to load hit programs\n");
+            printf("[S] failed to load %s\n", name);
             printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
-            return false;
+            return nullptr;
         }
 
-        printf("[S] found hit programs shader source\n");
+        printf("[S] found %s\n", name);
 
-        // mdl_renderer_runtime.slang
-        mdl_renderer_runtime = session->loadModule("mdl_renderer_runtime", diagnostics.writeRef());
-        if (!mdl_renderer_runtime)
-        {
-            printf("[S] failed to load renderer runtime programs\n");
-            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
-            return false;
+        return module;
+    }
+
+    void __erase_slang_modules() {
+        printf("[S] exploring slangified contents\n");
+        for (auto f : std::filesystem::directory_iterator(slang_folder)) {
+            std::string path = f.path().string();
+            if (ends_with(path, "slang-module")) {
+                std::filesystem::remove(path);
+                printf("[S] erasing slang module: %s\n", path.c_str());
+            }
         }
+    }
 
-        printf("[S] found renderer runtime shader source\n");
-        
-        // mdl_target_code_types.slang
-        mdl_target_code_types = session->loadModule("mdl_target_code_types", diagnostics.writeRef());
-        if (!mdl_target_code_types)
-        {
-            printf("[S] failed to load target code type programs\n");
-            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
-            return false;
-        }
+    void write_module(slang::IModule* module, const char* path)
+    {
+        Slang::ComPtr<slang::IBlob> blob;
+        module->serialize(blob.writeRef());
+        std::filesystem::path dst = slang_folder / path;
+        std::ofstream fout(dst, std::ios::binary);
+        printf("[S] writing to module: %s\n", dst.string().c_str());
+        fout.write((const char *) blob->getBufferPointer(), blob->getBufferSize());
+        fout.close();
+    }
 
-        printf("[S] found target code types shader source\n");
-        
-        // common.slang
-        mdl_common = session->loadModule("common", diagnostics.writeRef());
-        if (!mdl_common)
-        {
-            printf("[S] failed to load common programs\n");
-            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
-            return false;
-        }
+    slang::IModule* mdl_hit_programs = nullptr;
+    slang::IModule* mdl_renderer_runtime = nullptr;
+    slang::IModule* mdl_target_code_types = nullptr;
+    slang::IModule* mdl_common = nullptr;
+    bool __load_modules() {
+        __erase_slang_modules();
 
-        printf("[S] found common shader source\n");
-        
-        return true;
+        // TODO: only if modules are enabled
+        // mdl_hit_programs = load_module("mdl_hit_programs");
+        mdl_renderer_runtime = load_module("mdl_renderer_runtime");
+        mdl_target_code_types = load_module("mdl_target_code_types");
+        mdl_common = load_module("common");
+
+        // write_module(mdl_hit_programs, "mdl_hit_programs.slang-module");
+        write_module(mdl_renderer_runtime, "mdl_renderer_runtime.slang-module");
+        write_module(mdl_target_code_types, "mdl_target_code_types.slang-module");
+        write_module(mdl_common, "common.slang-module");
+
+        return true
+            && mdl_renderer_runtime
+            && mdl_target_code_types
+            && mdl_common;
     }
 
     bool loaded = false;
@@ -966,6 +981,9 @@ bool Mdl_material_target::generate()
     if (file_stream)
     {
         std::string slang_source_code;
+        // TODO: find methods and add public to them?
+        // slang_source_code += "module material;\n";
+        // slang_source_code += "\n";
         slang_source_code += "import mdl_renderer_runtime;\n";
         slang_source_code += "import mdl_target_code_types;\n";
         slang_source_code += "\n";
@@ -1017,15 +1035,9 @@ bool Mdl_material_target::compile()
         
     // materials.slang
     // TODO: load from source in generate()
-    slang::IModule* mdl_material = g_slang.session->loadModule("material", diagnostics.writeRef());
-    if (!mdl_material)
-    {
-        printf("[S] failed to material programs\n");
-        printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
-        return false;
-    }
-        
-    printf("[S] found material shader source\n");
+    slang::IModule* mdl_material = g_slang.load_module("material");
+
+    g_slang.mdl_hit_programs = g_slang.load_module("mdl_hit_programs");
 
     // Separate Shader_library objects for each entry point
     for (auto entry : { m_radiance_closest_hit_name,

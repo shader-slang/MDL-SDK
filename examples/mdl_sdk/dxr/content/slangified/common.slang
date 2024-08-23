@@ -26,125 +26,127 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-static const float M_PI =          3.14159265358979323846;
-static const float M_ONE_OVER_PI = 0.318309886183790671538;
-static const float DIRAC = -1.0f;
+module common;
+
+public static const float M_PI = 3.14159265358979323846;
+public static const float M_ONE_OVER_PI = 0.318309886183790671538;
+public static const float DIRAC = -1.0f;
 
 SamplerState sampler_latlong : register(s3);
 
-cbuffer SceneConstants : register(b1)
+public cbuffer SceneConstants : register(b1)
 {
-    float total_time;
-    float delta_time;
+    public float total_time;
+    public float delta_time;
 
     // (progressive) rendering
-    uint progressive_iteration;
-    uint max_ray_depth;
-    uint iterations_per_frame;
+    public uint progressive_iteration;
+    public uint max_ray_depth;
+    public uint iterations_per_frame;
 
     // tone mapping
-    float exposure_compensation;
-    float firefly_clamp_threshold;
-    float burn_out;
+    public float exposure_compensation;
+    public float firefly_clamp_threshold;
+    public float burn_out;
 
     // one additional point light for illustration
-    uint point_light_enabled;
-    float3 point_light_position;
-    float3 point_light_intensity;
+    public uint point_light_enabled;
+    public float3 point_light_position;
+    public float3 point_light_intensity;
 
     // gamma correction while rendering to the frame buffer
-    float output_gamma_correction;
+    public float output_gamma_correction;
 
     // environment light
-    float environment_intensity_factor;
-    float environment_inv_integral;
+    public float environment_intensity_factor;
+    public float environment_inv_integral;
 
     // when auxiliary buffers are enabled, this index is used to select to one to display
-    uint display_buffer_index;
+    public uint display_buffer_index;
 
     // enable animation mode, progression is limited, mdl state will have an animation_time
-    uint enable_animiation;
+    public uint enable_animiation;
 
     /// replace the background with a constant color when visible to the camera
-    uint background_color_enabled;
-    float3 background_color;
+    public uint background_color_enabled;
+    public float3 background_color;
 
     /// uv transformations
-    float2 uv_scale;
-    float2 uv_offset;
-    uint uv_repeat;
-    uint uv_saturate;
+    public float2 uv_scale;
+    public float2 uv_offset;
+    public uint uv_repeat;
+    public uint uv_saturate;
 
     // rotation of the environment [0, 1]
-    float environment_rotation;
+    public float environment_rotation;
 
     // defines the scale of the scene
-    float meters_per_scene_unit;
+    public float meters_per_scene_unit;
 
     // far plane that defines the maximum ray travel distance
-    float far_plane_distance;
+    public float far_plane_distance;
 }
 
 
 // Ray typed, has to match with CPU version
-typedef uint RayType;
-static const RayType RAY_TYPE_RADIANCE = 0;
-static const RayType RAY_TYPE_SHADOW = 1;
-static const RayType RAY_TYPE_COUNT = (RAY_TYPE_SHADOW + 1);
+public typedef uint RayType;
+public static const RayType RAY_TYPE_RADIANCE = 0;
+public static const RayType RAY_TYPE_SHADOW = 1;
+public static const RayType RAY_TYPE_COUNT = (RAY_TYPE_SHADOW + 1);
 
-typedef uint RadianceHitInfoFlags;
-static const RadianceHitInfoFlags FLAG_NONE = 0;
-static const RadianceHitInfoFlags FLAG_INSIDE = 1;
-static const RadianceHitInfoFlags FLAG_DONE = 2;
-static const RadianceHitInfoFlags FLAG_FIRST_PATH_SEGMENT = 4;
-static const RadianceHitInfoFlags FLAG_LAST_PATH_SEGMENT = 8;
-static const RadianceHitInfoFlags FLAG_CAMERA_RAY = 16;
+public typedef uint RadianceHitInfoFlags;
+public static const RadianceHitInfoFlags FLAG_NONE = 0;
+public static const RadianceHitInfoFlags FLAG_INSIDE = 1;
+public static const RadianceHitInfoFlags FLAG_DONE = 2;
+public static const RadianceHitInfoFlags FLAG_FIRST_PATH_SEGMENT = 4;
+public static const RadianceHitInfoFlags FLAG_LAST_PATH_SEGMENT = 8;
+public static const RadianceHitInfoFlags FLAG_CAMERA_RAY = 16;
 
-void add_flag(inout uint flags, uint to_add)
+public void add_flag(inout uint flags, uint to_add)
 {
     flags |= to_add; 
 }
 
-void toggle_flag(inout uint flags, uint to_toggle)
+public void toggle_flag(inout uint flags, uint to_toggle)
 {
     flags ^= to_toggle;
 }
 
-void remove_flag(inout uint flags, uint to_remove)
+public void remove_flag(inout uint flags, uint to_remove)
 {
     flags &= ~to_remove; 
 }
 
-bool has_flag(int flags, uint to_check)
+public bool has_flag(int flags, uint to_check)
 {
     return (flags & to_check) != 0;
 }
 
 // payload for RAY_TYPE_RADIANCE
-struct RadianceHitInfo
+public struct RadianceHitInfo
 {
-    float3 contribution;
-    float3 weight;
+    public float3 contribution;
+    public float3 weight;
 
-    float3 ray_origin_next;
-    float3 ray_direction_next;
+    public float3 ray_origin_next;
+    public float3 ray_direction_next;
 
-    uint seed;
-    float last_bsdf_pdf;
-    uint flags;
+    public uint seed;
+    public float last_bsdf_pdf;
+    public uint flags;
 };
 
 // payload for RAY_TYPE_SHADOW
-struct ShadowHitInfo
+public struct ShadowHitInfo
 {
-    bool isHit;
-    uint seed;
+    public bool isHit;
+    public uint seed;
 };
 
 // Attributes output by the ray tracing when hitting a surface
-struct Attributes
+public struct Attributes
 {
-    float2 bary;
+    public float2 bary;
 };
 
 // Helper to make NaN and INF values visible in the output image.
@@ -158,60 +160,60 @@ float3 encode_errors(float3 color)
 //-------------------------------------------------------------------------------------------------
 
 /// interpolation of the data over the primitive
-typedef uint SceneDataInterpolationMode;
-static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_NONE = 0;
-static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_LINEAR = 1;
-static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_NEAREST = 2;
+public typedef uint SceneDataInterpolationMode;
+public static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_NONE = 0;
+public static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_LINEAR = 1;
+public static const SceneDataInterpolationMode SCENE_DATA_INTERPOLATION_MODE_NEAREST = 2;
 
 /// Scope a scene data element belongs to
-typedef uint SceneDataKind;
-static const SceneDataKind SCENE_DATA_KIND_NONE = 0;
-static const SceneDataKind SCENE_DATA_KIND_VERTEX = 1;
-static const SceneDataKind SCENE_DATA_KIND_INSTANCE = 2;
+public typedef uint SceneDataKind;
+public static const SceneDataKind SCENE_DATA_KIND_NONE = 0;
+public static const SceneDataKind SCENE_DATA_KIND_VERTEX = 1;
+public static const SceneDataKind SCENE_DATA_KIND_INSTANCE = 2;
 
 /// Basic element type of the scene data
-typedef uint SceneDataElementType;
-static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_FLOAT = 0;
-static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_INT = 1;
-static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_COLOR = 2;
+public typedef uint SceneDataElementType;
+public static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_FLOAT = 0;
+public static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_INT = 1;
+public static const SceneDataElementType SCENE_DATA_ELEMENT_TYPE_COLOR = 2;
 
 // Infos about the interleaved vertex layout (compressed)
-struct SceneDataInfo
+public struct SceneDataInfo
 {
     /// Scope a scene data element belongs to (4 bits)
-    inline SceneDataKind GetKind()
+    public inline SceneDataKind GetKind()
     {
         return (SceneDataKind) ((packed_data.x & 0xF0000000u) >> 28);
     }
 
     /// Basic element type of the scene data (4 bits)
-    inline SceneDataElementType GetElementType()
+    public inline SceneDataElementType GetElementType()
     {
         return (SceneDataElementType) ((packed_data.x & 0x0F000000u) >> 24);
     }
 
     /// Interpolation of the data over the primitive (4 bits)
-    SceneDataInterpolationMode GetInterpolationMode()
+    public inline SceneDataInterpolationMode GetInterpolationMode()
     {
         return (SceneDataInterpolationMode) ((packed_data.x & 0x00F00000u) >> 20);
     }
 
     /// Indicates whether there the scene data is uniform. (1 bit)
-    bool GetUniform()
+    public bool GetUniform()
     {
         return (packed_data.x & 0x00010000u) > 0;
     }
 
     /// Offset between two elements. For interleaved vertex buffers, this is the vertex size in byte.
     /// For non-interleaved buffers, this is the element size in byte. (16 bit)
-    uint GetByteStride()
+    public uint GetByteStride()
     {
         return (packed_data.x & 0x0000FFFFu);
     }
 
     /// The offset to the data element within an interleaved vertex buffer, or the absolute
     /// offset to the base (e.g. of the geometry data) in non-interleaved buffers
-    uint GetByteOffset()
+    public uint GetByteOffset()
     {
         return packed_data.y;
     }
@@ -221,33 +223,33 @@ struct SceneDataInfo
 };
 
 // renderer state object that is passed to mdl runtime functions
-struct DXRRendererState
+public struct DXRRendererState
 {
     // index offset for the first info object relevant for this geometry
-    uint scene_data_info_offset;
+    public uint scene_data_info_offset;
 
     // global offset in the data buffer (for object, geometry, ...)
-    uint scene_data_geometry_byte_offset;
+    public uint scene_data_geometry_byte_offset;
 
     // vertex indices if the hit triangle (from index buffer)
-    uint3 hit_vertex_indices;
+    public uint3 hit_vertex_indices;
 
     // barycentric coordinates of the hit point within the triangle
-    float3 barycentric;
+    public float3 barycentric;
 
     // true if the hit point was on the backside of a triangle, based on geom normal and ray direction
-    bool hit_backface;
+    public bool hit_backface;
 };
 
 // use this structure as renderer state in the MDL shading state material
-typedef DXRRendererState RENDERER_STATE_TYPE; 
+public typedef DXRRendererState RENDERER_STATE_TYPE; 
 
 // Positions, normals, and tangents are mandatory for this renderer. The vertex buffer always
 // contains this data at the beginning of the (interleaved) per vertex data.
-typedef uint VertexByteOffset;
-static const VertexByteOffset VERT_BYTEOFFSET_POSITION = 0;
-static const VertexByteOffset VERT_BYTEOFFSET_NORMAL = 12;
-static const VertexByteOffset VERT_BYTEOFFSET_TANGENT = 24;
+public typedef uint VertexByteOffset;
+public static const VertexByteOffset VERT_BYTEOFFSET_POSITION = 0;
+public static const VertexByteOffset VERT_BYTEOFFSET_NORMAL = 12;
+public static const VertexByteOffset VERT_BYTEOFFSET_TANGENT = 24;
 
 //-------------------------------------------------------------------------------------------------
 // random number generator based on the Optix SDK
@@ -278,25 +280,25 @@ uint lcg(inout uint prev)
 }
 
 // Generate random float in [0, 1)
-float rnd(inout uint prev)
+public float rnd(inout uint prev)
 {
     return ((float) lcg(prev) / (float) 0x01000000);
 }
 
-float2 rnd2(inout uint prev)
+public float2 rnd2(inout uint prev)
 {
     return float2((float) lcg(prev) / (float) 0x01000000,
                   (float) lcg(prev) / (float) 0x01000000);
 }
 
-float3 rnd3(inout uint prev)
+public float3 rnd3(inout uint prev)
 {
     return float3((float) lcg(prev) / (float) 0x01000000,
                   (float) lcg(prev) / (float) 0x01000000,
                   (float) lcg(prev) / (float) 0x01000000);
 }
 
-float4 rnd4(inout uint prev)
+public float4 rnd4(inout uint prev)
 {
     return float4((float) lcg(prev) / (float) 0x01000000,
                   (float) lcg(prev) / (float) 0x01000000,
@@ -309,7 +311,7 @@ float4 rnd4(inout uint prev)
 //-------------------------------------------------------------------------------------------------
 
 // convert float4x3 to 4x4, to be compatible with the slang compiler
-float4x4 to4x4(float3x4 source)
+public float4x4 to4x4(float3x4 source)
 {
     return float4x4(source[0], source[1], source[2], float4(0.0f, 0.0f, 0.0f, 1.0f));
 }
@@ -318,16 +320,16 @@ float4x4 to4x4(float3x4 source)
 // Environment
 //-------------------------------------------------------------------------------------------------
 
-struct Environment_sample_data
+public struct Environment_sample_data
 {
     uint alias;
     float q;
 };
 
-float3 environment_evaluate(Texture2D<float4> lat_long_tex,
-                            StructuredBuffer<Environment_sample_data> sample_buffer,
-                            float3 normalized_dir,
-                            out float pdf)
+public float3 environment_evaluate(Texture2D<float4> lat_long_tex,
+                                   StructuredBuffer<Environment_sample_data> sample_buffer,
+                                   float3 normalized_dir,
+                                   out float pdf)
 {
     // assuming lat long
     float u = atan2(normalized_dir.z, normalized_dir.x) * 0.5f * M_ONE_OVER_PI + 0.5f;
@@ -343,11 +345,11 @@ float3 environment_evaluate(Texture2D<float4> lat_long_tex,
     return t * environment_intensity_factor;
 }
 
-float3 environment_sample(Texture2D<float4> lat_long_tex,
-                          StructuredBuffer<Environment_sample_data> sample_buffer,
-                          inout uint seed,
-                          out float3 to_light,
-                          out float pdf)
+public float3 environment_sample(Texture2D<float4> lat_long_tex,
+                                 StructuredBuffer<Environment_sample_data> sample_buffer,
+                                 inout uint seed,
+                                 out float3 to_light,
+                                 out float pdf)
 {
     float3 xi;
     xi.x = rnd(seed);
@@ -406,7 +408,7 @@ float3 environment_sample(Texture2D<float4> lat_long_tex,
 // Avoiding self intersections (see Ray Tracing Gems, Ch. 6)
 //-------------------------------------------------------------------------------------------------
 
-float3 offset_ray(const float3 p, const float3 n)
+public float3 offset_ray(const float3 p, const float3 n)
 {
     const float origin = 1.0f / 32.0f;
     const float float_scale = 1.0f / 65536.0f;
