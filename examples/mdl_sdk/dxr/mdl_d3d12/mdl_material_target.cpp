@@ -562,7 +562,7 @@ static bool ends_with(std::string_view str, std::string_view suffix)
 }
 
 struct {
-    static constexpr bool MODULES = false;
+    static constexpr bool ENABLE_MODULES = true;
 
     Slang::ComPtr<slang::IGlobalSession> global_session;
     bool __load_global_session() {
@@ -640,7 +640,7 @@ struct {
     }
 
     void write_module(slang::IModule* module, const char* path) {
-        if (!MODULES)
+        if (!ENABLE_MODULES)
             return;
 
         Slang::ComPtr<slang::IBlob> blob;
@@ -652,29 +652,29 @@ struct {
         fout.close();
     }
 
-    slang::IModule* mdl_hit_programs = nullptr;
-    slang::IModule* mdl_renderer_runtime = nullptr;
-    slang::IModule* mdl_target_code_types = nullptr;
-    slang::IModule* mdl_common = nullptr;
+    slang::IModule* module_runtime = nullptr;
+    slang::IModule* module_common = nullptr;
+    slang::IModule* module_types = nullptr;
+    slang::IModule* module_lighting = nullptr;
     bool __load_modules() {
-        if (!MODULES)
+        if (!ENABLE_MODULES)
             return true;
 
-        // TODO: only if modules are enabled
-        mdl_hit_programs = load_module("mdl_hit_programs");
-        mdl_renderer_runtime = load_module("mdl_renderer_runtime");
-        mdl_target_code_types = load_module("mdl_target_code_types");
-        mdl_common = load_module("common");
+        module_runtime = load_module("runtime");
+        module_common = load_module("common");
+        module_types = load_module("types");
+        module_lighting = load_module("lighting");
 
-        write_module(mdl_hit_programs, "mdl_hit_programs.slang-module");
-        write_module(mdl_renderer_runtime, "mdl_renderer_runtime.slang-module");
-        write_module(mdl_target_code_types, "mdl_target_code_types.slang-module");
-        write_module(mdl_common, "common.slang-module");
+        write_module(module_runtime, "runtime.slang-module");
+        write_module(module_common, "common.slang-module");
+        write_module(module_types, "types.slang-module");
+        write_module(module_lighting, "lighting.slang-module");
 
         return true
-            && mdl_renderer_runtime
-            && mdl_target_code_types
-            && mdl_common;
+            && module_runtime
+            && module_common
+            && module_types
+            && module_lighting;
     }
 
     bool loaded = false;
@@ -994,10 +994,12 @@ bool Mdl_material_target::generate()
         // TODO: find methods and add public to them?
         // slang_source_code += "module material;\n";
         // slang_source_code += "\n";
-        slang_source_code += "import mdl_renderer_runtime;\n";
-        slang_source_code += "import mdl_target_code_types;\n";
+        slang_source_code += "import runtime;\n";
+        slang_source_code += "import types;\n";
         slang_source_code += "\n";
         slang_source_code += m_target_code->get_code();
+        slang_source_code += "\n";
+        slang_source_code += "#include \"hit.slang\"\n";
         file_stream << slang_source_code.c_str();
         file_stream.close();
     }
@@ -1045,18 +1047,9 @@ bool Mdl_material_target::compile()
     // Module with entry points
     Slang::ComPtr<slang::IBlob> diagnostics;
         
-    // materials.slang
+    // materials.slang: includes the raytracing entry point shaders
     slang::IModule* mdl_material = nullptr;
-    if (g_slang.MODULES) {
-        mdl_material = g_slang.load_module("material");
-        g_slang.write_module(mdl_material, "material.slang-module");
-    }
-        
-    slang::IModule* mdl_hit_programs = nullptr;
-    if (g_slang.MODULES)
-        mdl_hit_programs = g_slang.mdl_hit_programs;
-    else
-        mdl_hit_programs = g_slang.load_module("mdl_hit_programs");
+    mdl_material = g_slang.load_module("material");
 
     // Separate Shader_library objects for each entry point
     for (auto entry : { m_radiance_closest_hit_name,
@@ -1067,7 +1060,7 @@ bool Mdl_material_target::compile()
         // Find the entry point
         Slang::ComPtr<slang::IEntryPoint> entry_point;
 
-        Slang::Result r_entry = mdl_hit_programs->findEntryPointByName(entry.c_str(), entry_point.writeRef());
+        Slang::Result r_entry = mdl_material->findEntryPointByName(entry.c_str(), entry_point.writeRef());
         if (SLANG_FAILED(r_entry))
         {
             printf("[S] failed to find program: %s\n", entry.c_str());
@@ -1079,13 +1072,11 @@ bool Mdl_material_target::compile()
         // Construct the linking group
         std::vector<slang::IComponentType*> components;
         components.push_back(entry_point);
-
-        if (g_slang.MODULES) {
-            components.push_back(g_slang.mdl_hit_programs);
-            components.push_back(g_slang.mdl_renderer_runtime);
-            components.push_back(g_slang.mdl_target_code_types);
-            components.push_back(g_slang.mdl_common);
-            components.push_back(mdl_material);
+        if (g_slang.ENABLE_MODULES) {
+            components.push_back(g_slang.module_runtime);
+            components.push_back(g_slang.module_common);
+            components.push_back(g_slang.module_types);
+            components.push_back(g_slang.module_lighting);
         }
 
         Slang::ComPtr<slang::IComponentType> group;

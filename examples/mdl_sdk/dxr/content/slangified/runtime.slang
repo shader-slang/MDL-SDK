@@ -26,31 +26,33 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+module runtime;
+
 import common;
-import mdl_target_code_types;
+import types;
 
 /// Information passed to GPU for mapping id requested in the runtime functions to texture
 /// views of the corresponding type.
-struct Mdl_texture_info
+public struct Mdl_texture_info
 {
     // index into the tex2d, tex3d, ... buffers, depending on the type requested
-    uint gpu_resource_array_start;
+    public uint gpu_resource_array_start;
 
     // number resources (e.g. uv-tiles) that belong to this resource
-    uint gpu_resource_array_size;
+    public uint gpu_resource_array_size;
 
     // frame number of the first texture/uv-tile
-    int gpu_resource_frame_first;
+    public int gpu_resource_frame_first;
 
     // coordinate of the left bottom most uv-tile (also bottom left corner)
-    int2 gpu_resource_uvtile_min;
+    public int2 gpu_resource_uvtile_min;
 
     // in case of uv-tiled textures, required to calculate a linear index (u + v * width
-    uint gpu_resource_uvtile_width;
-    uint gpu_resource_uvtile_height;
+    public uint gpu_resource_uvtile_width;
+    public uint gpu_resource_uvtile_height;
 
     // get the last frame of an animated texture
-    int get_last_frame()
+    public int get_last_frame()
     {
         return gpu_resource_array_size / (gpu_resource_uvtile_width * gpu_resource_uvtile_height)
             + gpu_resource_frame_first - 1;
@@ -58,7 +60,7 @@ struct Mdl_texture_info
 
     // return the resource view index for a given uv-tile id. (see compute_uvtile_and_update_uv(...))
     // returning of -1 indicates out of bounds, 0 refers to the invalid resource.
-    int compute_uvtile_id(float frame, int2 uv_tile)
+    public int compute_uvtile_id(float frame, int2 uv_tile)
     {
         if (gpu_resource_array_size == 1) // means no uv-tiles
             return int(gpu_resource_array_start);
@@ -83,7 +85,7 @@ struct Mdl_texture_info
     // the index of the resource is returned while the uv mapped into the uv-tile
     // if uv-tiles are not used, the data is just passed through
     // returning of -1 indicates out of bounds, 0 refers to the invalid resource.
-    int compute_uvtile_id_and_update_uv(float frame, inout float2 uv)
+    public int compute_uvtile_id_and_update_uv(float frame, inout float2 uv)
     {
         if(gpu_resource_array_size == 1) // means no uv-tiles
             return int(gpu_resource_array_start);
@@ -98,145 +100,145 @@ struct Mdl_texture_info
 };
 
 /// Information passed to the GPU for each light profile resource
-struct Mdl_light_profile_info
+public struct Mdl_light_profile_info
 {
     // angular resolution of the grid and its inverse
-    uint2 angular_resolution;
-    float2 inv_angular_resolution;
+    public uint2 angular_resolution;
+    public float2 inv_angular_resolution;
 
     // starting angles of the grid
-    float2 theta_phi_start;
+    public float2 theta_phi_start;
 
     // angular step size and its inverse
-    float2 theta_phi_delta;
-    float2 theta_phi_inv_delta;
+    public float2 theta_phi_delta;
+    public float2 theta_phi_inv_delta;
 
     // factor to rescale the normalized data
     // also represents the maximum candela value of the data
-    float candela_multiplier;
+    public float candela_multiplier;
 
     // power (radiant flux)
-    float total_power;
+    public float total_power;
 
     // index into the textures_2d array
     // -  texture contains normalized data sampled on grid
-    uint eval_data_index;
+    public uint eval_data_index;
 
     // index into the buffers
     // - CDFs for sampling a light profile
-    uint sample_data_index;
+    public uint sample_data_index;
 };
 
 /// Information passed to the GPU for each BSDF measurement resource
-struct Mdl_mbsdf_info
+public struct Mdl_mbsdf_info
 {
     // if the MBSDF has data for reflection (0) and transmission (1)
-    uint2 has_data;
+    public uint2 has_data;
 
     // index into the texture_3d array for both parts
     // - texture contains the measurement values for evaluation
-    uint2 eval_data_index;
+    public uint2 eval_data_index;
 
     // indices into the buffers array for both parts
     // - sample_data buffer contains CDFs for sampling
     // - albedo_data buffer contains max albedos for each theta (isotropic)
-    uint2 sample_data_index;
-    uint2 albedo_data_index;
+    public uint2 sample_data_index;
+    public uint2 albedo_data_index;
 
     // maximum albedo values for both parts, used for limiting the multiplier
-    float2 max_albedo;
+    public float2 max_albedo;
 
     // discrete angular resolution for both parts
-    uint2 angular_resolution_theta;
-    uint2 angular_resolution_phi;
+    public uint2 angular_resolution_theta;
+    public uint2 angular_resolution_phi;
 
     // number of color channels (1 for scalar, 3 for rgb) for both parts
-    uint2 num_channels;
+    public uint2 num_channels;
 };
 
 // per target data
-ByteAddressBuffer mdl_ro_data_segment : register(t0, space2);
+public ByteAddressBuffer mdl_ro_data_segment : register(t0, space2);
 
 // per material data
 // - argument block contains dynamic parameter data exposed in class compilation mode
-ByteAddressBuffer mdl_argument_block : register(t1, space3);
+public ByteAddressBuffer mdl_argument_block : register(t1, space3);
 // - resource infos map resource IDs, generated by the SDK, to actual buffer views
-StructuredBuffer<Mdl_texture_info> mdl_texture_infos : register(t2, space3);
+public StructuredBuffer<Mdl_texture_info> mdl_texture_infos : register(t2, space3);
 // - light profile infos
-StructuredBuffer<Mdl_light_profile_info> mdl_light_profile_infos : register(t3, space3);
+public StructuredBuffer<Mdl_light_profile_info> mdl_light_profile_infos : register(t3, space3);
 // - bsdf measurement infos
-StructuredBuffer<Mdl_mbsdf_info> mdl_mbsdf_infos : register(t4, space3);
+public StructuredBuffer<Mdl_mbsdf_info> mdl_mbsdf_infos : register(t4, space3);
 // - texture views, unbound and overlapping for 2D and 3D resources
-Texture2D mdl_textures_2d[] : register(t0, space4);
-Texture3D mdl_textures_3d[] : register(t0, space5);
+public Texture2D mdl_textures_2d[] : register(t0, space4);
+public Texture3D mdl_textures_3d[] : register(t0, space5);
 // - buffer views, unbound. contains sampling and albedo buffers for MBSDFs and sampling buffers for light profiles
-StructuredBuffer<float> mdl_buffers[] : register(t0, space6);
+public StructuredBuffer<float> mdl_buffers[] : register(t0, space6);
 
 // mesh data, includes the per mesh scene data
-ByteAddressBuffer vertices : register(t1, space0);
+public ByteAddressBuffer vertices : register(t1, space0);
 
 // instance data
 // - scene data buffer for object/instance data
-ByteAddressBuffer scene_data : register(t3, space0);
+public ByteAddressBuffer scene_data : register(t3, space0);
 // - mapping between scene_data_id and scene data buffer layout
-StructuredBuffer<SceneDataInfo> scene_data_infos: register(t4, space0);
+public StructuredBuffer<SceneDataInfo> scene_data_infos: register(t4, space0);
 
 // global samplers
-SamplerState mdl_sampler_tex : register(s0);
-SamplerState mdl_sampler_light_profile : register(s1);
-SamplerState mdl_sampler_mbsdf : register(s2);
+public SamplerState mdl_sampler_tex : register(s0);
+public SamplerState mdl_sampler_light_profile : register(s1);
+public SamplerState mdl_sampler_mbsdf : register(s2);
 
 // ------------------------------------------------------------------------------------------------
 // Argument block access for dynamic parameters in class compilation mode
 // ------------------------------------------------------------------------------------------------
 
-float mdl_read_argblock_as_float(int offs)
+public float mdl_read_argblock_as_float(int offs)
 {
     return asfloat(mdl_argument_block.Load(offs));
 }
 
-double mdl_read_argblock_as_double(int offs)
+public double mdl_read_argblock_as_double(int offs)
 {
     return asdouble(mdl_argument_block.Load(offs), mdl_argument_block.Load(offs + 4));
 }
 
-int mdl_read_argblock_as_int(int offs)
+public int mdl_read_argblock_as_int(int offs)
 {
     return asint(mdl_argument_block.Load(offs));
 }
 
-uint mdl_read_argblock_as_uint(int offs)
+public uint mdl_read_argblock_as_uint(int offs)
 {
     return mdl_argument_block.Load(offs);
 }
 
-bool mdl_read_argblock_as_bool(int offs)
+public bool mdl_read_argblock_as_bool(int offs)
 {
     uint val = mdl_argument_block.Load(offs & ~3);
     return (val & (0xffU << (8 * (offs & 3)))) != 0;
 }
 
-float mdl_read_rodata_as_float(int offs)
+public float mdl_read_rodata_as_float(int offs)
 {
     return asfloat(mdl_ro_data_segment.Load(offs));
 }
 
-double mdl_read_rodata_as_double(int offs)
+public double mdl_read_rodata_as_double(int offs)
 {
     return asdouble(mdl_ro_data_segment.Load(offs), mdl_ro_data_segment.Load(offs + 4));
 }
 
-int mdl_read_rodata_as_int(int offs)
+public int mdl_read_rodata_as_int(int offs)
 {
     return asint(mdl_ro_data_segment.Load(offs));
 }
 
-int mdl_read_rodata_as_uint(int offs)
+public int mdl_read_rodata_as_uint(int offs)
 {
     return mdl_ro_data_segment.Load(offs);
 }
 
-bool mdl_read_rodata_as_bool(int offs)
+public bool mdl_read_rodata_as_bool(int offs)
 {
     uint val = mdl_ro_data_segment.Load(offs & ~3);
     return (val & (0xffU << (8 * (offs & 3)))) != 0;
@@ -250,7 +252,7 @@ bool mdl_read_rodata_as_bool(int offs)
 // corresponds to ::tex::texture_isvalid(uniform texture_3d tex)
 // corresponds to ::tex::texture_isvalid(uniform texture_cube tex) // not supported by this example
 // corresponds to ::tex::texture_isvalid(uniform texture_ptex tex) // not supported by this example
-bool tex_texture_isvalid(int tex)
+public bool tex_texture_isvalid(int tex)
 {
     // assuming that there is no indexing out of bounds of the resource_infos and the view arrays
     return tex != 0; // invalid texture
@@ -258,7 +260,7 @@ bool tex_texture_isvalid(int tex)
 
 // helper function to realize wrap and crop.
 // Out of bounds case for TEX_WRAP_CLIP must already be handled.
-float apply_wrap_and_crop(
+public float apply_wrap_and_crop(
     float coord,
     int wrap,
     float2 crop,
@@ -295,7 +297,7 @@ float apply_wrap_and_crop(
 
 // Modify texture coordinates to get better texture filtering,
 // see http://www.iquilezles.org/www/articles/texture/texture.htm
-float2 apply_smootherstep_filter(float2 uv, uint2 size)
+public float2 apply_smootherstep_filter(float2 uv, uint2 size)
 {
     float2 res;
     res = uv * size + 0.5f;
@@ -316,7 +318,7 @@ float2 apply_smootherstep_filter(float2 uv, uint2 size)
 // Texturing functions, 2D
 // ------------------------------------------------------------------------------------------------
 
-int2 tex_res_2d(int tex, int2 uv_tile, float frame)
+public int2 tex_res_2d(int tex, int2 uv_tile, float frame)
 {
     if (tex == 0) return uint2(0, 0); // invalid texture
 
@@ -332,19 +334,19 @@ int2 tex_res_2d(int tex, int2 uv_tile, float frame)
 }
 
 // corresponds to ::tex::width(uniform texture_2d tex, int2 uv_tile, float frame)
-int tex_width_2d(int tex, int2 uv_tile, float frame)
+public int tex_width_2d(int tex, int2 uv_tile, float frame)
 {
     return tex_res_2d(tex, uv_tile, frame).x;
 }
 
 // corresponds to ::tex::height(uniform texture_2d tex, int2 uv_tile)
-int tex_height_2d(int tex, int2 uv_tile, float frame)
+public int tex_height_2d(int tex, int2 uv_tile, float frame)
 {
     return tex_res_2d(tex, uv_tile, frame).y;
 }
 
 // corresponds to ::tex::first__frame(uniform texture_2d)
-int tex_first_frame_2d(int tex)
+public int tex_first_frame_2d(int tex)
 {
     if (tex == 0) return 0; // invalid texture
 
@@ -354,7 +356,7 @@ int tex_first_frame_2d(int tex)
 }
 
 // corresponds to ::tex::last_frame(uniform texture_2d)
-int tex_last_frame_2d(int tex)
+public int tex_last_frame_2d(int tex)
 {
     if (tex == 0) return 0; // invalid texture
 
@@ -364,7 +366,7 @@ int tex_last_frame_2d(int tex)
 }
 
 // corresponds to ::tex::lookup_float4(uniform texture_2d tex, float2 coord, ...)
-float4 tex_lookup_float4_2d(int tex,
+public float4 tex_lookup_float4_2d(int tex,
                             float2 coord,
                             int wrap_u,
                             int wrap_v,
@@ -400,28 +402,28 @@ float4 tex_lookup_float4_2d(int tex,
         mdl_sampler_tex, coord, /*lod=*/ 0.0f, /*offset=*/ int2(0, 0));
 }
 
-float3 tex_lookup_float3_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+public float3 tex_lookup_float3_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
     return tex_lookup_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
 }
 
-float3 tex_lookup_color_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+public float3 tex_lookup_color_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
     return tex_lookup_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
 }
 
-float2 tex_lookup_float2_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+public float2 tex_lookup_float2_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
     return tex_lookup_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xy;
 }
 
-float tex_lookup_float_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+public float tex_lookup_float_2d(int tex, float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
     return tex_lookup_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).x;
 }
 
 // corresponds to ::tex::lookup_float4(uniform texture_2d tex, float2 coord, ...) when derivatives are enabled
-float4 tex_lookup_deriv_float4_2d(int tex,
+public float4 tex_lookup_deriv_float4_2d(int tex,
                                   Derived_float2 coord,
                                   int wrap_u,
                                   int wrap_v,
@@ -457,29 +459,29 @@ float4 tex_lookup_deriv_float4_2d(int tex,
         mdl_sampler_tex, coord.val, coord.dx, coord.dy, /*offset=*/ int2(0, 0));
 }
 
-float3 tex_lookup_deriv_float3_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+public float3 tex_lookup_deriv_float3_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
     return tex_lookup_deriv_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
 }
 
-float3 tex_lookup_deriv_color_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+public float3 tex_lookup_deriv_color_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
     return tex_lookup_deriv_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xyz;
 }
 
-float2 tex_lookup_deriv_float2_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+public float2 tex_lookup_deriv_float2_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
     return tex_lookup_deriv_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).xy;
 }
 
-float tex_lookup_deriv_float_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
+public float tex_lookup_deriv_float_2d(int tex, Derived_float2 coord, int wrap_u, int wrap_v, float2 crop_u, float2 crop_v, float frame)
 {
     return tex_lookup_deriv_float4_2d(tex, coord, wrap_u, wrap_v, crop_u, crop_v, frame).x;
 }
 
 
 // corresponds to ::tex::texel_float4(uniform texture_2d tex, float2 coord, int2 uv_tile)
-float4 tex_texel_float4_2d(int tex,
+public float4 tex_texel_float4_2d(int tex,
                            int2 coord,
                            int2 uv_tile,
                            float frame)
@@ -501,22 +503,22 @@ float4 tex_texel_float4_2d(int tex,
     return mdl_textures_2d[NonUniformResourceIndex(array_index)].Load(int3(coord, /*mipmaplevel=*/ 0));
 }
 
-float3 tex_texel_float3_2d(int tex, int2 coord, int2 uv_tile, float frame)
+public float3 tex_texel_float3_2d(int tex, int2 coord, int2 uv_tile, float frame)
 {
     return tex_texel_float4_2d(tex, coord, uv_tile, frame).xyz;
 }
 
-float3 tex_texel_color_2d(int tex, int2 coord, int2 uv_tile, float frame)
+public float3 tex_texel_color_2d(int tex, int2 coord, int2 uv_tile, float frame)
 {
     return tex_texel_float3_2d(tex, coord, uv_tile, frame);
 }
 
-float2 tex_texel_float2_2d(int tex, int2 coord, int2 uv_tile, float frame)
+public float2 tex_texel_float2_2d(int tex, int2 coord, int2 uv_tile, float frame)
 {
     return tex_texel_float4_2d(tex, coord, uv_tile, frame).xy;
 }
 
-float tex_texel_float_2d(int tex, int2 coord, int2 uv_tile, float frame)
+public float tex_texel_float_2d(int tex, int2 coord, int2 uv_tile, float frame)
 {
     return tex_texel_float4_2d(tex, coord, uv_tile, frame).x;
 }
@@ -526,7 +528,7 @@ float tex_texel_float_2d(int tex, int2 coord, int2 uv_tile, float frame)
 // Texturing functions, 3D
 // ------------------------------------------------------------------------------------------------
 
-int3 tex_res_3d(int tex, float frame)
+public int3 tex_res_3d(int tex, float frame)
 {
     if (tex == 0) return uint3(0, 0, 0); // invalid texture
 
@@ -542,7 +544,7 @@ int3 tex_res_3d(int tex, float frame)
 }
 
 // corresponds to ::tex::first__frame(uniform texture_3d)
-int tex_first_frame_3d(int tex)
+public int tex_first_frame_3d(int tex)
 {
     if (tex == 0) return 0; // invalid texture
 
@@ -552,7 +554,7 @@ int tex_first_frame_3d(int tex)
 }
 
 // corresponds to ::tex::last_frame(uniform texture_3d)
-int tex_last_frame_3d(int tex)
+public int tex_last_frame_3d(int tex)
 {
     if (tex == 0) return 0; // invalid texture
 
@@ -562,16 +564,16 @@ int tex_last_frame_3d(int tex)
 }
 
 // corresponds to ::tex::width(uniform texture_3d tex, int2 uv_tile)
-int tex_width_3d(int tex, float frame) { return tex_res_3d(tex, frame).x; }
+public int tex_width_3d(int tex, float frame) { return tex_res_3d(tex, frame).x; }
 
 // corresponds to ::tex::height(uniform texture_3d tex, int2 uv_tile)
-int tex_height_3d(int tex, float frame) { return tex_res_3d(tex, frame).y; }
+public int tex_height_3d(int tex, float frame) { return tex_res_3d(tex, frame).y; }
 
 // corresponds to ::tex::depth(uniform texture_3d tex, int2 uv_tile)
-int tex_depth_3d(int tex, float frame) { return tex_res_3d(tex, frame).z; }
+public int tex_depth_3d(int tex, float frame) { return tex_res_3d(tex, frame).z; }
 
 // corresponds to ::tex::lookup_float4(uniform texture_3d tex, float2 coord, ...)
-float4 tex_lookup_float4_3d(int tex,
+public float4 tex_lookup_float4_3d(int tex,
                             float3 coord,
                             int wrap_u,
                             int wrap_v,
@@ -609,28 +611,28 @@ float4 tex_lookup_float4_3d(int tex,
         mdl_sampler_tex, coord, /*lod=*/ 0.0f, /*offset=*/ int3(0, 0, 0));
 }
 
-float3 tex_lookup_float3_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w,float2 crop_u, float2 crop_v, float2 crop_w, float frame)
+public float3 tex_lookup_float3_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w,float2 crop_u, float2 crop_v, float2 crop_w, float frame)
 {
     return tex_lookup_float4_3d(tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xyz;
 }
 
-float3 tex_lookup_color_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
+public float3 tex_lookup_color_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
 {
     return tex_lookup_float4_3d(tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xyz;
 }
 
-float2 tex_lookup_float2_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
+public float2 tex_lookup_float2_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
 {
     return tex_lookup_float4_3d(tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).xy;
 }
 
-float tex_lookup_float_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
+public float tex_lookup_float_3d(int tex, float3 coord, int wrap_u, int wrap_v, int wrap_w, float2 crop_u, float2 crop_v, float2 crop_w, float frame)
 {
     return tex_lookup_float4_3d(tex, coord, wrap_u, wrap_v, wrap_w, crop_u, crop_v, crop_w, frame).x;
 }
 
 // corresponds to ::tex::texel_float4(uniform texture_3d tex, float3 coord)
-float4 tex_texel_float4_3d(int tex, int3 coord, float frame)
+public float4 tex_texel_float4_3d(int tex, int3 coord, float frame)
 {
     if (tex == 0) return float4(0, 0, 0, 0); // invalid texture
 
@@ -648,22 +650,22 @@ float4 tex_texel_float4_3d(int tex, int3 coord, float frame)
     return mdl_textures_3d[NonUniformResourceIndex(array_index)].Load(int4(coord, /*mipmaplevel=*/ 0));
 }
 
-float3 tex_texel_float3_3d(int tex, int3 coord, float frame)
+public float3 tex_texel_float3_3d(int tex, int3 coord, float frame)
 {
     return tex_texel_float4_3d(tex, coord, frame).xyz;
 }
 
-float3 tex_texel_color_3d(int tex, int3 coord, float frame)
+public float3 tex_texel_color_3d(int tex, int3 coord, float frame)
 {
     return tex_texel_float3_3d(tex, coord, frame);
 }
 
-float2 tex_texel_float2_3d(int tex, int3 coord, float frame)
+public float2 tex_texel_float2_3d(int tex, int3 coord, float frame)
 {
     return tex_texel_float4_3d(tex, coord, frame).xy;
 }
 
-float tex_texel_float_3d(int tex, int3 coord, float frame)
+public float tex_texel_float_3d(int tex, int3 coord, float frame)
 {
     return tex_texel_float4_3d(tex, coord, frame).x;
 }
@@ -673,55 +675,55 @@ float tex_texel_float_3d(int tex, int3 coord, float frame)
 // Texturing functions, Cube (not supported by this example)
 // ------------------------------------------------------------------------------------------------
 
-int tex_width_cube(int tex) { return 0; }
-int tex_height_cube(int tex) { return 0; }
+public int tex_width_cube(int tex) { return 0; }
+public int tex_height_cube(int tex) { return 0; }
 
-float4 tex_lookup_float4_cube(int tex, float3 coord)
+public float4 tex_lookup_float4_cube(int tex, float3 coord)
 {
     return float4(0, 0, 0, 0);
 }
 
-float3 tex_lookup_float3_cube(int tex, float3 coord)
+public float3 tex_lookup_float3_cube(int tex, float3 coord)
 {
     return tex_lookup_float4_cube(tex, coord).xyz;
 }
 
-float3 tex_lookup_color_cube(int tex, float3 coord)
+public float3 tex_lookup_color_cube(int tex, float3 coord)
 {
     return tex_lookup_float4_cube(tex, coord).xyz;
 }
 
-float2 tex_lookup_float2_cube(int tex, float3 coord)
+public float2 tex_lookup_float2_cube(int tex, float3 coord)
 {
     return tex_lookup_float4_cube(tex, coord).xy;
 }
 
-float tex_lookup_float_cube(int tex, float3 coord)
+public float tex_lookup_float_cube(int tex, float3 coord)
 {
     return tex_lookup_float4_cube(tex, coord).x;
 }
 
-float4 tex_texel_float4_cube(int tex, int3 coord)
+public float4 tex_texel_float4_cube(int tex, int3 coord)
 {
     return float4(0, 0, 0, 0);
 }
 
-float3 tex_texel_float3_cube(int tex, int3 coord)
+public float3 tex_texel_float3_cube(int tex, int3 coord)
 {
     return tex_texel_float4_cube(tex, coord).xyz;
 }
 
-float3 tex_texel_color_cube(int tex, int3 coord)
+public float3 tex_texel_color_cube(int tex, int3 coord)
 {
     return tex_texel_float4_cube(tex, coord).xyz;
 }
 
-float2 tex_texel_float2_cube(int tex, int3 coord)
+public float2 tex_texel_float2_cube(int tex, int3 coord)
 {
     return tex_texel_float4_cube(tex, coord).xy;
 }
 
-float tex_texel_float_cube(int tex, int3 coord)
+public float tex_texel_float_cube(int tex, int3 coord)
 {
     return tex_texel_float4_cube(tex, coord).x;
 }
@@ -731,27 +733,27 @@ float tex_texel_float_cube(int tex, int3 coord)
 // ------------------------------------------------------------------------------------------------
 
 
-float4 tex_lookup_float4_ptex(int tex, int channel)
+public float4 tex_lookup_float4_ptex(int tex, int channel)
 {
     return float4(0, 0, 0, 0);
 }
 
-float3 tex_lookup_float3_ptex(int tex, int channel)
+public float3 tex_lookup_float3_ptex(int tex, int channel)
 {
     return tex_lookup_float4_ptex(tex, channel).xyz;
 }
 
-float3 tex_lookup_color_ptex(int tex, int channel)
+public float3 tex_lookup_color_ptex(int tex, int channel)
 {
     return tex_lookup_float3_ptex(tex, channel);
 }
 
-float2 tex_lookup_float2_ptex(int tex, int channel)
+public float2 tex_lookup_float2_ptex(int tex, int channel)
 {
     return tex_lookup_float4_ptex(tex, channel).xy;
 }
 
-float tex_lookup_float_ptex(int tex, int channel)
+public float tex_lookup_float_ptex(int tex, int channel)
 {
     return tex_lookup_float4_ptex(tex, channel).x;
 }
@@ -777,13 +779,13 @@ uint sample_cdf(StructuredBuffer<float> cdf, uint cdf_offset, uint cdf_size, flo
     return m;
 }
 
-bool df_light_profile_isvalid(int lp_idx)
+public bool df_light_profile_isvalid(int lp_idx)
 {
     // assuming that there is no indexing out of bounds of the light_profile_infos and the view arrays
     return lp_idx != 0; // 0 is the invalid light profile
 }
 
-float df_light_profile_power(int lp_idx)
+public float df_light_profile_power(int lp_idx)
 {
     if (lp_idx == 0) return 0; // invalid light profile
 
@@ -791,7 +793,7 @@ float df_light_profile_power(int lp_idx)
     return lp.total_power;
 }
 
-float df_light_profile_maximum(int lp_idx)
+public float df_light_profile_maximum(int lp_idx)
 {
     if (lp_idx == 0) return 0; // invalid light profile
 
@@ -799,7 +801,7 @@ float df_light_profile_maximum(int lp_idx)
     return lp.candela_multiplier;
 }
 
-float df_light_profile_evaluate(int lp_idx, float2 theta_phi)
+public float df_light_profile_evaluate(int lp_idx, float2 theta_phi)
 {
     if (lp_idx == 0) return 0; // invalid light profile
 
@@ -832,7 +834,7 @@ float df_light_profile_evaluate(int lp_idx, float2 theta_phi)
     return value * lp.candela_multiplier;
 }
 
-float3 df_light_profile_sample(int lp_idx, float3 xi)
+public float3 df_light_profile_sample(int lp_idx, float3 xi)
 {
     float3 result = float3(
         -1.0, // negative theta (x value) means no emission
@@ -902,7 +904,7 @@ float3 df_light_profile_sample(int lp_idx, float3 xi)
     return result;
 }
 
-float df_light_profile_pdf(int lp_idx, float2 theta_phi)
+public float df_light_profile_pdf(int lp_idx, float2 theta_phi)
 {
     if (lp_idx == 0) return 0; // invalid light profile
 
@@ -958,7 +960,7 @@ float df_light_profile_pdf(int lp_idx, float2 theta_phi)
 // Measured BSDFs
 // ------------------------------------------------------------------------------------------------
 
-float3 bsdf_compute_uvw(float2 theta_phi_in, float2 theta_phi_out)
+public float3 bsdf_compute_uvw(float2 theta_phi_in, float2 theta_phi_out)
 {
     // assuming each phi is between -pi and pi
     float u = theta_phi_out[1] - theta_phi_in[1];
@@ -972,13 +974,13 @@ float3 bsdf_compute_uvw(float2 theta_phi_in, float2 theta_phi_out)
     return float3(u, v, w);
 }
 
-bool df_bsdf_measurement_isvalid(int bm_idx)
+public bool df_bsdf_measurement_isvalid(int bm_idx)
 {
     // assuming that there is no indexing out of bounds of the mbsdf_infos and the view arrays
     return bm_idx != 0; // 0 is the invalid bsdf measurement
 }
 
-int3 df_bsdf_measurement_resolution(int bm_idx, int part)
+public int3 df_bsdf_measurement_resolution(int bm_idx, int part)
 {
     if (bm_idx == 0) return int3(0, 0, 0); // invalid bsdf measurement
     
@@ -992,7 +994,7 @@ int3 df_bsdf_measurement_resolution(int bm_idx, int part)
         bm.num_channels[part]);
 }
 
-float3 df_bsdf_measurement_evaluate(int bm_idx,
+public float3 df_bsdf_measurement_evaluate(int bm_idx,
                                     float2 theta_phi_in,
                                     float2 theta_phi_out,
                                     int part)
@@ -1012,7 +1014,7 @@ float3 df_bsdf_measurement_evaluate(int bm_idx,
 }
 
 // output: theta, phi, pdf
-float3 df_bsdf_measurement_sample(int bm_idx,
+public float3 df_bsdf_measurement_sample(int bm_idx,
                                   float2 theta_phi_out,
                                   float3 xi,
                                   int part)
@@ -1098,7 +1100,7 @@ float3 df_bsdf_measurement_sample(int bm_idx,
     return result;
 }
 
-float df_bsdf_measurement_pdf(int bm_idx,
+public float df_bsdf_measurement_pdf(int bm_idx,
                               float2 theta_phi_in,
                               float2 theta_phi_out,
                               int part)
@@ -1147,7 +1149,7 @@ float df_bsdf_measurement_pdf(int bm_idx,
 }
 
 // output: max (in case of color) albedo for the selected direction (x) and global (y)
-float2 df_bsdf_measurement_albedo(int bm_idx, float2 theta_phi, int part)
+public float2 df_bsdf_measurement_albedo(int bm_idx, float2 theta_phi, int part)
 {
     const Mdl_mbsdf_info bm = mdl_mbsdf_infos[bm_idx - 1]; // assuming this is in bounds
 
@@ -1164,7 +1166,7 @@ float2 df_bsdf_measurement_albedo(int bm_idx, float2 theta_phi, int part)
     return float2(albedo_data[idx_theta], bm.max_albedo[part]);
 }
 
-float4 df_bsdf_measurement_albedos(int bm_idx, float2 theta_phi)
+public float4 df_bsdf_measurement_albedos(int bm_idx, float2 theta_phi)
 {
     if (bm_idx == 0) return float4(0, 0, 0, 0); // invalid bsdf measurement
 
@@ -1181,7 +1183,7 @@ float4 df_bsdf_measurement_albedos(int bm_idx, float2 theta_phi)
 // Scene Data API
 // ------------------------------------------------------------------------------------------------
 
-bool scene_data_isvalid_internal(
+public bool scene_data_isvalid_internal(
     Shading_state_material state,   // MDL state that also contains a custom renderer state
     int scene_data_id,              // the scene_data_id (from target code or manually added)
     bool uniform_lookup)
@@ -1206,7 +1208,7 @@ bool scene_data_isvalid_internal(
     }
 }
 
-bool scene_data_isvalid(
+public bool scene_data_isvalid(
     inout Shading_state_material state, // MDL state that also contains a custom renderer state
     int scene_data_id)                  // the scene_data_id (from target code or manually added)
 {
@@ -1215,7 +1217,7 @@ bool scene_data_isvalid(
 }
 
 // try to avoid a lot of redundant code, always return float4 but (statically) switch on components
-float4 scene_data_lookup_floatX(
+public float4 scene_data_lookup_floatX(
     Shading_state_material state,   // MDL state that also contains a custom renderer state
     int scene_data_id,              // the scene_data_id (from target code or manually added)
     float4 default_value,           // default value in case the requested data is not valid
@@ -1341,7 +1343,7 @@ float4 scene_data_lookup_floatX(
     }
 }
 
-float4 scene_data_lookup_float4(
+public float4 scene_data_lookup_float4(
     inout Shading_state_material state,
     int scene_data_id,
     float4 default_value,
@@ -1351,7 +1353,7 @@ float4 scene_data_lookup_float4(
     return scene_data_lookup_floatX(state, scene_data_id, default_value, uniform_lookup, 4);
 }
 
-float3 scene_data_lookup_float3(
+public float3 scene_data_lookup_float3(
     inout Shading_state_material state,
     int scene_data_id,
     float3 default_value,
@@ -1361,7 +1363,7 @@ float3 scene_data_lookup_float3(
     return scene_data_lookup_floatX(state, scene_data_id, default_value.xyzx, uniform_lookup, 3).xyz;
 }
 
-float3 scene_data_lookup_color(
+public float3 scene_data_lookup_color(
     inout Shading_state_material state,
     int scene_data_id,
     float3 default_value,
@@ -1371,7 +1373,7 @@ float3 scene_data_lookup_color(
     return scene_data_lookup_floatX(state, scene_data_id, default_value.xyzx, uniform_lookup, 3).xyz;
 }
 
-float2 scene_data_lookup_float2(
+public float2 scene_data_lookup_float2(
     inout Shading_state_material state,
     int scene_data_id,
     float2 default_value,
@@ -1381,7 +1383,7 @@ float2 scene_data_lookup_float2(
     return scene_data_lookup_floatX(state, scene_data_id, default_value.xyxx, uniform_lookup, 2).xy;
 }
 
-float scene_data_lookup_float(
+public float scene_data_lookup_float(
     inout Shading_state_material state,
     int scene_data_id,
     float default_value,
@@ -1391,7 +1393,7 @@ float scene_data_lookup_float(
     return scene_data_lookup_floatX(state, scene_data_id, default_value.xxxx, uniform_lookup, 1).x;
 }
 
-float4x4 scene_data_lookup_float4x4(
+public float4x4 scene_data_lookup_float4x4(
     inout Shading_state_material state,
     int scene_data_id,
     float4x4 default_value,
@@ -1403,7 +1405,7 @@ float4x4 scene_data_lookup_float4x4(
     return default_value;
 }
 
-int4 scene_data_lookup_intX(
+public int4 scene_data_lookup_intX(
     Shading_state_material state,
     int scene_data_id,
     int4 default_value,
@@ -1528,7 +1530,7 @@ int4 scene_data_lookup_intX(
     }
 }
 
-int4 scene_data_lookup_int4(
+public int4 scene_data_lookup_int4(
     inout Shading_state_material state,
     int scene_data_id,
     int4 default_value,
@@ -1538,7 +1540,7 @@ int4 scene_data_lookup_int4(
     return scene_data_lookup_intX(state, scene_data_id, default_value, uniform_lookup, 4);
 }
 
-int3 scene_data_lookup_int3(
+public int3 scene_data_lookup_int3(
     inout Shading_state_material state,
     int scene_data_id,
     int3 default_value,
@@ -1548,7 +1550,7 @@ int3 scene_data_lookup_int3(
     return scene_data_lookup_intX(state, scene_data_id, default_value.xyzx, uniform_lookup, 3).xyz;
 }
 
-int2 scene_data_lookup_int2(
+public int2 scene_data_lookup_int2(
     inout Shading_state_material state,
     int scene_data_id,
     int2 default_value,
@@ -1558,7 +1560,7 @@ int2 scene_data_lookup_int2(
     return scene_data_lookup_intX(state, scene_data_id, default_value.xyxx, uniform_lookup, 2).xy;
 }
 
-int scene_data_lookup_int(
+public int scene_data_lookup_int(
     inout Shading_state_material state,
     int scene_data_id,
     int default_value,

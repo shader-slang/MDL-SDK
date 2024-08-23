@@ -139,11 +139,13 @@ target_add_content(TARGET ${PROJECT_NAME}
         "content/slangified/compile-ordinary.bat"
         "content/slangified/compile-precompiled.bat"
 
+        "content/slangified/setup.slang"
         "content/slangified/material.slang"
         "content/slangified/common.slang"
-        "content/slangified/mdl_renderer_runtime.slang"
-        "content/slangified/mdl_target_code_types.slang"
-        "content/slangified/mdl_hit_programs.slang"
+        "content/slangified/runtime.slang"
+        "content/slangified/types.slang"
+        "content/slangified/lighting.slang"
+        "content/slangified/hit.slang"
         "content/slangified/miss_programs.slang"
         "content/slangified/ray_gen_program.slang"
         
