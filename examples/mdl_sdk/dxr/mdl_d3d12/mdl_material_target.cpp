@@ -562,6 +562,8 @@ static bool ends_with(std::string_view str, std::string_view suffix)
 }
 
 struct {
+    static constexpr bool MODULES = false;
+
     Slang::ComPtr<slang::IGlobalSession> global_session;
     bool __load_global_session() {
         Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
@@ -602,7 +604,7 @@ struct {
         }
 
         printf("[S] successfully loaded the local session\n");
-        printf("  search path: %s\n", slang_folder.c_str());
+        printf("  search path: %s\n", slang_folder_cstr);
         return true;
     }
 
@@ -622,7 +624,7 @@ struct {
         return module;
     }
 
-    void __erase_slang_modules() {
+    bool __erase_slang_modules() {
         printf("[S] exploring slangified contents\n");
         for (auto f : std::filesystem::directory_iterator(slang_folder)) {
             std::string path = f.path().string();
@@ -631,10 +633,16 @@ struct {
                 printf("[S] erasing slang module: %s\n", path.c_str());
             }
         }
+
+        printf("[S] done clearing previous modules\n");
+
+        return true;
     }
 
-    void write_module(slang::IModule* module, const char* path)
-    {
+    void write_module(slang::IModule* module, const char* path) {
+        if (!MODULES)
+            return;
+
         Slang::ComPtr<slang::IBlob> blob;
         module->serialize(blob.writeRef());
         std::filesystem::path dst = slang_folder / path;
@@ -649,15 +657,16 @@ struct {
     slang::IModule* mdl_target_code_types = nullptr;
     slang::IModule* mdl_common = nullptr;
     bool __load_modules() {
-        __erase_slang_modules();
+        if (!MODULES)
+            return true;
 
         // TODO: only if modules are enabled
-        // mdl_hit_programs = load_module("mdl_hit_programs");
+        mdl_hit_programs = load_module("mdl_hit_programs");
         mdl_renderer_runtime = load_module("mdl_renderer_runtime");
         mdl_target_code_types = load_module("mdl_target_code_types");
         mdl_common = load_module("common");
 
-        // write_module(mdl_hit_programs, "mdl_hit_programs.slang-module");
+        write_module(mdl_hit_programs, "mdl_hit_programs.slang-module");
         write_module(mdl_renderer_runtime, "mdl_renderer_runtime.slang-module");
         write_module(mdl_target_code_types, "mdl_target_code_types.slang-module");
         write_module(mdl_common, "common.slang-module");
@@ -672,6 +681,7 @@ struct {
     bool load() {
         if(!__load_global_session()) return false;
         if(!__load_session()) return false;
+        if (!__erase_slang_modules()) return false;
         if(!__load_modules()) return false;
         return (loaded = true);
     }
@@ -1013,6 +1023,8 @@ const mi::neuraylib::ITarget_code* Mdl_material_target::get_generated_target() c
 
 bool Mdl_material_target::compile()
 {
+    auto p = m_app->get_profiling().measure("compiling slang shaders (whole)");
+
     // Global slang state initialization
     if (!g_slang.loaded)
     {
@@ -1034,10 +1046,17 @@ bool Mdl_material_target::compile()
     Slang::ComPtr<slang::IBlob> diagnostics;
         
     // materials.slang
-    // TODO: load from source in generate()
-    slang::IModule* mdl_material = g_slang.load_module("material");
-
-    g_slang.mdl_hit_programs = g_slang.load_module("mdl_hit_programs");
+    slang::IModule* mdl_material = nullptr;
+    if (g_slang.MODULES) {
+        mdl_material = g_slang.load_module("material");
+        g_slang.write_module(mdl_material, "material.slang-module");
+    }
+        
+    slang::IModule* mdl_hit_programs = nullptr;
+    if (g_slang.MODULES)
+        mdl_hit_programs = g_slang.mdl_hit_programs;
+    else
+        mdl_hit_programs = g_slang.load_module("mdl_hit_programs");
 
     // Separate Shader_library objects for each entry point
     for (auto entry : { m_radiance_closest_hit_name,
@@ -1048,7 +1067,7 @@ bool Mdl_material_target::compile()
         // Find the entry point
         Slang::ComPtr<slang::IEntryPoint> entry_point;
 
-        Slang::Result r_entry = g_slang.mdl_hit_programs->findEntryPointByName(entry.c_str(), entry_point.writeRef());
+        Slang::Result r_entry = mdl_hit_programs->findEntryPointByName(entry.c_str(), entry_point.writeRef());
         if (SLANG_FAILED(r_entry))
         {
             printf("[S] failed to find program: %s\n", entry.c_str());
@@ -1060,11 +1079,14 @@ bool Mdl_material_target::compile()
         // Construct the linking group
         std::vector<slang::IComponentType*> components;
         components.push_back(entry_point);
-        components.push_back(g_slang.mdl_hit_programs);
-        components.push_back(g_slang.mdl_renderer_runtime);
-        components.push_back(g_slang.mdl_target_code_types);
-        components.push_back(g_slang.mdl_common);
-        components.push_back(mdl_material);
+
+        if (g_slang.MODULES) {
+            components.push_back(g_slang.mdl_hit_programs);
+            components.push_back(g_slang.mdl_renderer_runtime);
+            components.push_back(g_slang.mdl_target_code_types);
+            components.push_back(g_slang.mdl_common);
+            components.push_back(mdl_material);
+        }
 
         Slang::ComPtr<slang::IComponentType> group;
         Slang::Result r_composed = g_slang.session->createCompositeComponentType(

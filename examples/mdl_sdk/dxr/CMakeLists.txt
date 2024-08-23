@@ -135,9 +135,11 @@ target_add_content(TARGET ${PROJECT_NAME}
         "content/miss_programs.hlsl"
         "content/ray_gen_program.hlsl"
         
+        "content/slangified/compile-mono.bat"
         "content/slangified/compile-ordinary.bat"
         "content/slangified/compile-precompiled.bat"
 
+        "content/slangified/material.slang"
         "content/slangified/common.slang"
         "content/slangified/mdl_renderer_runtime.slang"
         "content/slangified/mdl_target_code_types.slang"
