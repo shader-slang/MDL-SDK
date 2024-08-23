@@ -965,14 +965,14 @@ bool Mdl_material_target::generate()
     m_hlsl_source_code.clear();
 
     // depending on the functions selected for code generation
-    printf("[S] SURFACE SCATTERING       %2d (=1)\n", interface_data.has_surface_scattering);
-    printf("[S] SURFACE EMISSION         %2d (=0)\n", interface_data.has_surface_emission);
-    printf("[S] BACKFACE SCATTERING      %2d (=0)\n", interface_data.has_backface_scattering);
-    printf("[S] BACKFACE EMISSION        %2d (=0)\n", interface_data.has_backface_emission);
-    printf("[S] VOLUME ABSORPTION        %2d (=0)\n", interface_data.has_volume_absorption);
-    printf("[S] THIN WALLED              %2d (=1)\n", interface_data.can_be_thin_walled);
-    printf("[S] SCENE_DATA_ID_TEXCOORD0  %2d (=1)\n", map_string_constant("TEXCOORD_0"));
-    printf("[S] MDL_NUM_TEXTURE_RESULTS  %2u (=1)\n", m_app->get_options()->texture_results_cache_size);
+    printf("[S] SURFACE SCATTERING       %2d (=1) \n", interface_data.has_surface_scattering);
+    printf("[S] SURFACE EMISSION         %2d (=0) \n", interface_data.has_surface_emission);
+    printf("[S] BACKFACE SCATTERING      %2d (=0) \n", interface_data.has_backface_scattering);
+    printf("[S] BACKFACE EMISSION        %2d (=0) \n", interface_data.has_backface_emission);
+    printf("[S] VOLUME ABSORPTION        %2d (=0) \n", interface_data.has_volume_absorption);
+    printf("[S] THIN WALLED              %2d (=1) \n", interface_data.can_be_thin_walled);
+    printf("[S] SCENE_DATA_ID_TEXCOORD0  %2d (=1) \n", map_string_constant("TEXCOORD_0"));
+    printf("[S] MDL_NUM_TEXTURE_RESULTS  %2u (=32)\n", m_app->get_options()->texture_results_cache_size);
 
     // write to file for debugging purpose
     std::ofstream file_stream;
@@ -988,6 +988,7 @@ bool Mdl_material_target::generate()
 		m_hlsl_source_code += "#include \"content/mdl_renderer_runtime.hlsl\"\n\n";
 		m_hlsl_source_code += m_target_code->get_code();
 		m_hlsl_source_code += "\n\n#include \"content/mdl_hit_programs.hlsl\"\n\n";
+
         file_stream << m_hlsl_source_code.c_str();
         file_stream.close();
     }
@@ -1007,6 +1008,11 @@ bool Mdl_material_target::generate()
         slang_source_code += m_target_code->get_code();
         slang_source_code += "\n";
         slang_source_code += "#include \"hit.slang\"\n";
+        slang_source_code += "\n";
+
+        if (!interface_data.can_be_thin_walled)
+            slang_source_code += "bool mdl_thin_walled(inout Shading_state_material state) { return true; }\n";
+
         file_stream << slang_source_code.c_str();
         file_stream.close();
     }
