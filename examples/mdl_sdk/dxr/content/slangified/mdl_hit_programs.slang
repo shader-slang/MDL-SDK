@@ -43,10 +43,6 @@ static const MaterialFlags MATERIAL_FLAG_SINGLE_SIDED = 1 << 1; // geometry is o
 // Ray tracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0, space0);
 
-// Environment map and sample data for importance sampling
-Texture2D<float4> environment_texture : register(t0, space1);
-StructuredBuffer<Environment_sample_data> environment_sample_buffer : register(t1, space1);
-
 // ------------------------------------------------------------------------------------------------
 // defined in the local root signature
 // ------------------------------------------------------------------------------------------------
@@ -108,12 +104,7 @@ float3 sample_lights(Shading_state_material state, out float3 to_light, out floa
     }
 
     // light from the environment
-    float3 radiance = environment_sample(   // (see common.hlsl)
-        environment_texture,                // assuming lat long map
-        environment_sample_buffer,          // importance sampling data of the environment map
-        seed,
-        to_light,
-        light_pdf);
+    float3 radiance = environment_sample(seed, to_light, light_pdf);
 
     // return radiance over pdf
     light_pdf *= p_select_light;

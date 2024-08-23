@@ -320,15 +320,17 @@ public float4x4 to4x4(float3x4 source)
 // Environment
 //-------------------------------------------------------------------------------------------------
 
+// Environment map and sample data for importance sampling
+Texture2D<float4> environment_texture : register(t0, space1);
+StructuredBuffer<Environment_sample_data> environment_sample_buffer : register(t1, space1);
+
 public struct Environment_sample_data
 {
     uint alias;
     float q;
 };
 
-public float3 environment_evaluate(Texture2D<float4> lat_long_tex,
-                                   StructuredBuffer<Environment_sample_data> sample_buffer,
-                                   float3 normalized_dir,
+public float3 environment_evaluate(float3 normalized_dir,
                                    out float pdf)
 {
     // assuming lat long
@@ -339,15 +341,13 @@ public float3 environment_evaluate(Texture2D<float4> lat_long_tex,
     const float v = acos(-normalized_dir.y) * M_ONE_OVER_PI;
 
     // get radiance and calculate pdf
-    float3 t = lat_long_tex.SampleLevel(
+    float3 t = environment_texture.SampleLevel(
         sampler_latlong, float2(u, v), /*mipmaplevel=*/ 0.0f, /*mipoffset=*/0).xyz;
     pdf = max(t.x, max(t.y, t.z)) * environment_inv_integral;
     return t * environment_intensity_factor;
 }
 
-public float3 environment_sample(Texture2D<float4> lat_long_tex,
-                                 StructuredBuffer<Environment_sample_data> sample_buffer,
-                                 inout uint seed,
+public float3 environment_sample(inout uint seed,
                                  out float3 to_light,
                                  out float pdf)
 {
@@ -359,21 +359,21 @@ public float3 environment_sample(Texture2D<float4> lat_long_tex,
 
     uint width;
     uint height;
-    lat_long_tex.GetDimensions(width, height);
+    environment_texture.GetDimensions(width, height);
 
     const uint size = width * height;
     const uint idx = min(uint(xi.x * float(size)), size - 1);
 
     uint env_idx;
-    if (xi.y < sample_buffer[idx].q)
+    if (xi.y < environment_sample_buffer[idx].q)
     {
         env_idx = idx;
-        xi.y /= sample_buffer[idx].q;
+        xi.y /= environment_sample_buffer[idx].q;
     }
     else
     {
-        env_idx = sample_buffer[idx].alias;
-        xi.y = (xi.y - sample_buffer[idx].q) / (1.0f - sample_buffer[idx].q);
+        env_idx = environment_sample_buffer[idx].alias;
+        xi.y = (xi.y - environment_sample_buffer[idx].q) / (1.0f - environment_sample_buffer[idx].q);
     }
 
     const uint py = env_idx / width;
@@ -399,7 +399,7 @@ public float3 environment_sample(Texture2D<float4> lat_long_tex,
 
     // lookup filtered value and calculate pdf
     const float v = theta * M_ONE_OVER_PI;
-    float3 t = lat_long_tex.SampleLevel(sampler_latlong, float2(u, v), /*mipmaplevel=*/ 0.0f, /*mipoffset=*/0).xyz;
+    float3 t = environment_texture.SampleLevel(sampler_latlong, float2(u, v), /*mipmaplevel=*/ 0.0f, /*mipoffset=*/0).xyz;
     pdf = max(t.x, max(t.y, t.z)) * environment_inv_integral;
     return t * environment_intensity_factor;
 }
