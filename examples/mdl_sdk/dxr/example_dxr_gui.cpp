@@ -395,6 +395,30 @@ void Gui_section_mdl_options::update(mi::neuraylib::ITransaction* /*transaction*
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
 
+Gui_section_slang_options::Gui_section_slang_options(
+    Example_dxr* app,
+    mi::examples::gui::Root* gui,
+    const Example_dxr_options* options)
+    : mi::examples::gui::Section(gui, "Slang Options", true)
+{
+    enable_modules = g_slang.ENABLE_MODULES;
+    default_enable_modules = g_slang.ENABLE_MODULES;
+}
+
+void Gui_section_slang_options::update(mi::neuraylib::ITransaction* /*transaction*/)
+{
+    if (mi::examples::gui::Control::checkbox("Enable Modules",
+        "Enable slang modules for separate module compilation",
+        &enable_modules, &default_enable_modules,
+        mi::examples::gui::Control::Flags::None))
+    {
+        g_slang.set_compilation_mode(enable_modules);
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+
 Gui_section_edit_material::Gui_section_edit_material(
     Example_dxr* app,
     mi::examples::gui::Root* gui,

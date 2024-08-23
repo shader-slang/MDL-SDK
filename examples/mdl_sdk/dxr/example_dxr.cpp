@@ -411,6 +411,9 @@ bool Example_dxr::load()
 
         gui->get_panel("right")->add("MDLSettings", new Gui_section_mdl_options(
             this, gui, options));
+        
+        gui->get_panel("right")->add("SlangSettings", new Gui_section_slang_options(
+            this, gui, options));
 
         gui->get_panel("right")->add("Material", new Gui_section_edit_material(
             this, gui, &m_scene_constants->data()));

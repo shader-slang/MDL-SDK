@@ -30,17 +30,12 @@
 
 #include <iostream>
 #include <fstream>
-#include <filesystem>
 
 #include "base_application.h"
 #include "descriptor_heap.h"
 #include "mdl_material.h"
 #include "mdl_sdk.h"
 #include "texture.h"
-
-#include "slang.h"
-#include "slang-gfx.h"
-#include "slang-com-ptr.h"
 
 #include <example_shared.h>
 
@@ -561,131 +556,143 @@ static bool ends_with(std::string_view str, std::string_view suffix)
     return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
-struct {
-    static constexpr bool ENABLE_MODULES = true;
+Slang_global_state g_slang;
 
-    Slang::ComPtr<slang::IGlobalSession> global_session;
-    bool __load_global_session() {
-        Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
-        if (SLANG_FAILED(r_global_session)) {
-            printf("[S] failed to create the global session\n");
-            return false;
+void Slang_global_state::set_compilation_mode(bool modules)
+{
+    printf("[S] set_compilation_mode: %d\n", modules);
+    if (modules == ENABLE_MODULES)
+        return;
+
+    ENABLE_MODULES = modules;
+    if (modules)
+        load_modules();
+    else
+        erase_slang_modules();
+}
+
+bool Slang_global_state::load_global_session()
+{
+    Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
+    if (SLANG_FAILED(r_global_session)) {
+        printf("[S] failed to create the global session\n");
+        return false;
+    }
+
+    printf("[S] successfully loaded the global session\n");
+    return true;
+}
+
+bool Slang_global_state::load_session()
+{
+    // Local slang session
+    slang_folder = mi::examples::io::get_executable_folder();
+    slang_folder /= "content";
+    slang_folder /= "slangified";
+    
+    const char* slang_folder_cstr = slang_folder.string().c_str();
+
+    slang::TargetDesc target_desc = {};
+    target_desc.format = SLANG_DXIL;
+    target_desc.profile = g_slang.global_session->findProfile("lib_6_6");
+
+    slang::SessionDesc desc {};
+    desc.targets = &target_desc;
+    desc.targetCount = 1;
+    desc.searchPaths = &slang_folder_cstr;
+    desc.searchPathCount = 1;
+
+    Slang::Result r_session = g_slang.global_session->createSession(desc, session.writeRef());
+    if (SLANG_FAILED(r_session))
+    {
+        printf("[S] failed to create the local session\n");
+        return false;
+    }
+
+    printf("[S] successfully loaded the local session\n");
+    printf("  search path: %s\n", slang_folder_cstr);
+    return true;
+}
+
+slang::IModule* Slang_global_state::load_module(const char* name)
+{
+    Slang::ComPtr<slang::IBlob> diagnostics;
+
+    slang::IModule* module = session->loadModule(name, diagnostics.writeRef());
+    if (!module)
+    {
+        printf("[S] failed to load %s\n", name);
+        printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+        return nullptr;
+    }
+
+    printf("[S] found %s\n", name);
+
+    return module;
+}
+
+bool Slang_global_state::erase_slang_modules()
+{
+    printf("[S] exploring slangified contents\n");
+    for (auto f : std::filesystem::directory_iterator(slang_folder)) {
+        std::string path = f.path().string();
+        if (ends_with(path, "slang-module")) {
+            std::filesystem::remove(path);
+            printf("[S] erasing slang module: %s\n", path.c_str());
         }
+    }
 
-        printf("[S] successfully loaded the global session\n");
+    printf("[S] done clearing previous modules\n");
+
+    return true;
+}
+
+void Slang_global_state::write_module(slang::IModule* module, const char* path)
+{
+    if (!ENABLE_MODULES)
+        return;
+
+    Slang::ComPtr<slang::IBlob> blob;
+    module->serialize(blob.writeRef());
+    std::filesystem::path dst = slang_folder / path;
+    std::ofstream fout(dst, std::ios::binary);
+    printf("[S] writing to module: %s\n", dst.string().c_str());
+    fout.write((const char *) blob->getBufferPointer(), blob->getBufferSize());
+    fout.close();
+}
+
+bool Slang_global_state::load_modules()
+{
+    if (!ENABLE_MODULES)
         return true;
-    }
 
-    Slang::ComPtr<slang::ISession> session;
-    std::filesystem::path slang_folder;
-    bool __load_session() {
-        // Local slang session
-        slang_folder = mi::examples::io::get_executable_folder();
-        slang_folder /= "content";
-        slang_folder /= "slangified";
-        
-        const char* slang_folder_cstr = slang_folder.string().c_str();
+    module_runtime = load_module("runtime");
+    module_common = load_module("common");
+    module_types = load_module("types");
+    module_lighting = load_module("lighting");
 
-        slang::TargetDesc target_desc = {};
-        target_desc.format = SLANG_DXIL;
-        target_desc.profile = g_slang.global_session->findProfile("lib_6_6");
+    write_module(module_runtime, "runtime.slang-module");
+    write_module(module_common, "common.slang-module");
+    write_module(module_types, "types.slang-module");
+    write_module(module_lighting, "lighting.slang-module");
 
-        slang::SessionDesc desc {};
-        desc.targets = &target_desc;
-        desc.targetCount = 1;
-        desc.searchPaths = &slang_folder_cstr;
-        desc.searchPathCount = 1;
+    return true
+        && module_runtime
+        && module_common
+        && module_types
+        && module_lighting;
+}
 
-        Slang::Result r_session = g_slang.global_session->createSession(desc, session.writeRef());
-        if (SLANG_FAILED(r_session))
-        {
-            printf("[S] failed to create the local session\n");
-            return false;
-        }
+bool Slang_global_state::load()
+{
+    if (!load_global_session()) return false;
+    if (!load_session()) return false;
+    if (!erase_slang_modules()) return false;
+    if (!load_modules()) return false;
+    return (loaded = true);
+}
 
-        printf("[S] successfully loaded the local session\n");
-        printf("  search path: %s\n", slang_folder_cstr);
-        return true;
-    }
-
-    slang::IModule* load_module(const char* name) {
-        Slang::ComPtr<slang::IBlob> diagnostics;
-
-        slang::IModule* module = session->loadModule(name, diagnostics.writeRef());
-        if (!module)
-        {
-            printf("[S] failed to load %s\n", name);
-            printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
-            return nullptr;
-        }
-
-        printf("[S] found %s\n", name);
-
-        return module;
-    }
-
-    bool __erase_slang_modules() {
-        printf("[S] exploring slangified contents\n");
-        for (auto f : std::filesystem::directory_iterator(slang_folder)) {
-            std::string path = f.path().string();
-            if (ends_with(path, "slang-module")) {
-                std::filesystem::remove(path);
-                printf("[S] erasing slang module: %s\n", path.c_str());
-            }
-        }
-
-        printf("[S] done clearing previous modules\n");
-
-        return true;
-    }
-
-    void write_module(slang::IModule* module, const char* path) {
-        if (!ENABLE_MODULES)
-            return;
-
-        Slang::ComPtr<slang::IBlob> blob;
-        module->serialize(blob.writeRef());
-        std::filesystem::path dst = slang_folder / path;
-        std::ofstream fout(dst, std::ios::binary);
-        printf("[S] writing to module: %s\n", dst.string().c_str());
-        fout.write((const char *) blob->getBufferPointer(), blob->getBufferSize());
-        fout.close();
-    }
-
-    slang::IModule* module_runtime = nullptr;
-    slang::IModule* module_common = nullptr;
-    slang::IModule* module_types = nullptr;
-    slang::IModule* module_lighting = nullptr;
-    bool __load_modules() {
-        if (!ENABLE_MODULES)
-            return true;
-
-        module_runtime = load_module("runtime");
-        module_common = load_module("common");
-        module_types = load_module("types");
-        module_lighting = load_module("lighting");
-
-        write_module(module_runtime, "runtime.slang-module");
-        write_module(module_common, "common.slang-module");
-        write_module(module_types, "types.slang-module");
-        write_module(module_lighting, "lighting.slang-module");
-
-        return true
-            && module_runtime
-            && module_common
-            && module_types
-            && module_lighting;
-    }
-
-    bool loaded = false;
-    bool load() {
-        if(!__load_global_session()) return false;
-        if(!__load_session()) return false;
-        if (!__erase_slang_modules()) return false;
-        if(!__load_modules()) return false;
-        return (loaded = true);
-    }
-} static g_slang;
+// ------------------------------------------------------------------------------------------------
 
 bool Mdl_material_target::generate()
 {

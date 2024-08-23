@@ -31,9 +31,16 @@
 #ifndef MDL_D3D12_MDL_MATERIAL_TARGET_H
 #define MDL_D3D12_MDL_MATERIAL_TARGET_H
 
+#include <filesystem>
+
+#include "slang.h"
+#include "slang-gfx.h"
+#include "slang-com-ptr.h"
+
 #include "common.h"
 #include "scene.h"
 #include "shader.h"
+
 #include <mi/mdl_sdk.h>
 
 namespace mi { namespace examples { namespace mdl_d3d12
@@ -60,6 +67,36 @@ namespace mi { namespace examples { namespace mdl_d3d12
         bool can_be_thin_walled = false;
         mi::Size argument_layout_index;
     };
+    
+    // --------------------------------------------------------------------------------------------
+
+    /// Global slang state, including modules
+    struct Slang_global_state {
+        bool ENABLE_MODULES = true;
+
+        void set_compilation_mode(bool modules);
+
+        Slang::ComPtr<slang::IGlobalSession> global_session;
+        Slang::ComPtr<slang::ISession> session;
+        std::filesystem::path slang_folder;
+        
+        bool load_global_session();
+        bool load_session();
+
+        slang::IModule* load_module(const char* name);
+        bool erase_slang_modules();
+        void write_module(slang::IModule* module, const char* path);
+
+        slang::IModule* module_runtime = nullptr;
+        slang::IModule* module_common = nullptr;
+        slang::IModule* module_types = nullptr;
+        slang::IModule* module_lighting = nullptr;
+        
+        bool load_modules();
+
+        bool loaded = false;
+        bool load();
+    } extern g_slang;
 
     // --------------------------------------------------------------------------------------------
 

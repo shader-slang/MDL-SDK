@@ -171,6 +171,22 @@ namespace mi { namespace examples { namespace dxr
 
     // --------------------------------------------------------------------------------------------
 
+    class Gui_section_slang_options : public mi::examples::gui::Section
+    {
+    public:
+        explicit Gui_section_slang_options(
+            Example_dxr* app,
+            mi::examples::gui::Root* gui,
+            const Example_dxr_options* options);
+    protected:
+        void update(mi::neuraylib::ITransaction* transaction) final;
+    private:
+        bool enable_modules;
+        bool default_enable_modules;
+    };
+
+    // --------------------------------------------------------------------------------------------
+
     /// This section extends the material section provided in the example shared project.
     /// The extension (by composition) allows to select materials, reload and replace Materials,
     /// and implements the resource handler. All those aspects are application dependent and
