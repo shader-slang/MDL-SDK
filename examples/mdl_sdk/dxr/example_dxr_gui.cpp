@@ -1075,6 +1075,11 @@ void Gui_performance_overlay::update(
     const mdl_d3d12::Update_args& args,
     const Scene_constants& scene_data)
 {
+    static constexpr size_t length = 120;
+    static float window[length] = { 0 };
+    static float mean = 0;
+    static size_t index = 0;
+
     bool show = true;
     ImGui::SetNextWindowPos(ImVec2(35.f, 35.f));
     ImGui::SetNextWindowSize(ImVec2(220, 0));
@@ -1100,8 +1105,15 @@ void Gui_performance_overlay::update(
 
         ImGui::Separator();
 
-        print_float_line(       "frame time:", "%.4f", float(args.elapsed_time));
-        print_float_line("frames per second:", "%.3f", float(1.0 / args.elapsed_time));
+        float framerate = ImGui::GetIO().Framerate;
+        float delta     = ImGui::GetIO().DeltaTime;
+
+        mean += (delta - window[index])/float(length);
+        window[index] = delta;
+        index = (index + 1) % length;
+
+        print_float_line(       "frame time:", "%.4f", mean);
+        print_float_line("frames per second:", "%.3f", framerate);
         print_float_line(       "total time:", "%.3f", float(args.total_time));
     }
     ImGui::End();
