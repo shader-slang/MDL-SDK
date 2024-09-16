@@ -146,8 +146,6 @@ target_add_content(TARGET ${PROJECT_NAME}
         "content/slangified/types.slang"
         "content/slangified/lighting.slang"
         "content/slangified/hit.slang"
-        "content/slangified/miss_programs.slang"
-        "content/slangified/ray_gen_program.slang"
         
         "content/gltf/sphere/sphere.bin"
         "content/gltf/sphere/sphere.gltf"

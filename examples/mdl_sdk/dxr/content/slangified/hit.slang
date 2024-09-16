@@ -29,8 +29,8 @@
 import common;
 import lighting;
 import setup;
-import material;
 import types;
+import material;
 
 // ------------------------------------------------------------------------------------------------
 // MDL hit group shader
