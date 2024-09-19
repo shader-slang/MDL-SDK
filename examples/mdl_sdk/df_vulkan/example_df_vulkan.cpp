@@ -36,10 +36,15 @@
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 
+#include "slang.h"
+#include "slang-gfx.h"
+#include "slang-com-ptr.h"
+
 #include <numeric>
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include <cassert>
+#include <filesystem>
+#include <fstream>
 
 // Enable this to dump the generated GLSL code to files in the current directory.
 // #define DUMP_GLSL
@@ -113,6 +118,77 @@ struct Vulkan_buffer
     }
 };
 
+//------------------------------------------------------------------------------
+// Slang configuration
+//------------------------------------------------------------------------------
+
+struct Slang_global_state {
+    bool ENABLE_MODULES = true;
+
+    Slang::ComPtr<slang::IGlobalSession> global_session;
+    Slang::ComPtr<slang::ISession> session;
+    std::filesystem::path slang_folder;
+    
+    bool load_global_session();
+    bool load_session();
+
+    bool loaded = false;
+    bool load();
+} g_slang;
+
+bool Slang_global_state::load_global_session()
+{
+    Slang::Result r_global_session = slang_createGlobalSession(SLANG_API_VERSION, global_session.writeRef());
+    if (SLANG_FAILED(r_global_session)) {
+        printf("[S] failed to create the global session\n");
+        return false;
+    }
+
+    printf("[S] successfully loaded the global session\n");
+    return true;
+}
+
+bool Slang_global_state::load_session()
+{
+    // Local slang session
+    slang_folder = mi::examples::io::get_executable_folder();
+    slang_folder /= "slangified";
+    
+    std::string slang_folder_str = slang_folder.string();
+
+    const char *search_paths[] = {
+        slang_folder_str.c_str()
+    };
+
+    slang::TargetDesc target_desc = {};
+    target_desc.format = SLANG_SPIRV;
+    target_desc.profile = g_slang.global_session->findProfile("460");
+
+    slang::SessionDesc desc {};
+    desc.targets = &target_desc;
+    desc.targetCount = 1;
+    desc.searchPaths = search_paths;
+    desc.searchPathCount = 1;
+
+    Slang::Result r_session = g_slang.global_session->createSession(desc, session.writeRef());
+    if (SLANG_FAILED(r_session))
+    {
+        printf("[S] failed to create the local session\n");
+        return false;
+    }
+
+    printf("[S] successfully loaded the local session\n");
+    printf("  search path: %s\n", slang_folder_str.c_str());
+    return true;
+}
+
+bool Slang_global_state::load()
+{
+    if (loaded) return true;
+    if (!load_global_session()) return false;
+    if (!load_session()) return false;
+    return (loaded = true);
+}
 
 //------------------------------------------------------------------------------
 // MDL-Vulkan resource interop
@@ -1092,8 +1168,73 @@ VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
             defines.push_back("BACKFACE_EMISSION_INTENSITY");
     }
 
+    const char *const DESTINATION = "slangified/material.slang";
+
+    printf("[S] writing generated shader to file (%s)...\n", DESTINATION);
+
+    std::ofstream fout(DESTINATION);
+    fout << df_glsl_source;
+    fout << "\n";
+    fout << path_trace_shader_source;
+    fout.close();
+
+    // Compilation with Slang    
+    printf("[S] compiling generated material with slang...\n");
+
+    Slang::ComPtr<slang::IBlob> diagnostics;
+
+    auto &session = g_slang.session;
+    auto module = session->loadModule("material", diagnostics.writeRef());
+
+    printf("[S] module address: %p\n", module);
+    if (!module)
+    {
+        printf("failed to load module:\n%s\n",
+            (char *) diagnostics.get()->getBufferPointer());
+        exit_failure("failed to compile module");
+    }
+
+    printf("[S] sucessfully loaded module...\n");
+
+    Slang::ComPtr<slang::IEntryPoint> kernel;
+
+    Slang::Result r_entry = module->findEntryPointByName("main", kernel.writeRef());
+    if (SLANG_FAILED(r_entry))
+    {
+        printf("[S] failed to find main kernel entry point\n");
+        exit_failure("failed to load entry point");
+    }
+
+    Slang::ComPtr<slang::IComponentType> group;
+
+    slang::IComponentType* entry_points[] = { kernel.get() };
+    Slang::Result r_composed = g_slang.session->createCompositeComponentType(
+        entry_points, 1,
+        group.writeRef(),
+        diagnostics.writeRef());
+
+    if (SLANG_FAILED(r_composed))
+    {
+        printf("[S] failed to construct composed program:\n%s\n",
+            (char *) diagnostics.get()->getBufferPointer());
+        exit_failure("failed to create composite component type");
+    }
+
+    Slang::ComPtr<slang::IComponentType> linked;
+    Slang::Result r_linked = group->link(linked.writeRef(), diagnostics.writeRef());
+    if (SLANG_FAILED(r_linked))
+    {
+        printf("[S] failed to link program:\n%s\n",
+            (char *) diagnostics.get()->getBufferPointer());
+        exit_failure("failed to link program");
+    }
+
+    printf("[S] successfully linked program\n");
+
     return mi::examples::vk::create_shader_module_from_sources(m_device,
-        { df_glsl_source, path_trace_shader_source }, EShLangCompute, defines);
+        { df_glsl_source, path_trace_shader_source },
+        EShLangCompute,
+        defines);
 }
 
 // Creates the descriptors set layout which is used to create the
@@ -2216,6 +2357,10 @@ int MAIN_UTF8(int argc, char* argv[])
         mi::examples::mdl::load_and_get_ineuray());
     if (!neuray.is_valid_interface())
         exit_failure("Failed to load the SDK.");
+
+    // Configure the Slang global state
+    if (!g_slang.load())
+        exit_failure("[S] failed to configure the Slang global state");
 
     // Handle the --version flag
     if (print_version_and_exit)

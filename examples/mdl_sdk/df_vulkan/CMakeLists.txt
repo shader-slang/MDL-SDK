@@ -35,12 +35,11 @@ set(PROJECT_RESOURCES
     "path_trace.comp"
     "display.vert"
     "display.frag"
-    )
+    "slangified/mdl_runtime.glsl"
+    "slangified/path_trace.comp")
 
 # collect sources
-set(PROJECT_SOURCES
-    "example_df_vulkan.cpp"
-    )
+set(PROJECT_SOURCES "example_df_vulkan.cpp")
 
 # create target from template
 create_from_base_preset(
@@ -49,8 +48,7 @@ create_from_base_preset(
     NAMESPACE mdl_sdk
     OUTPUT_NAME "df_vulkan"
     SOURCES ${PROJECT_SOURCES}
-    EXAMPLE
-)
+    EXAMPLE)
 
 # add dependencies
 target_add_dependencies(TARGET ${PROJECT_NAME}
@@ -58,13 +56,19 @@ target_add_dependencies(TARGET ${PROJECT_NAME}
         vulkan
         glfw
         mdl::mdl_sdk
-        mdl_sdk::shared
-    )
+        mdl_sdk::shared)
+
+# add slang headers
+include_directories(${CMAKE_SOURCE_DIR}/slang/include)
+
+# link with the slang libraries
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/slang/lib/slang.lib
+    ${CMAKE_SOURCE_DIR}/slang/lib/slang-rt.lib)
 
 # copy additional resources
 target_add_content(TARGET ${PROJECT_NAME}
-    FILES ${PROJECT_RESOURCES}
-    )
+    FILES ${PROJECT_RESOURCES})
 
 # organize IDE folder
 source_group("glsl" FILES ${PROJECT_RESOURCES})
@@ -77,5 +81,4 @@ target_create_vs_user_settings(TARGET ${PROJECT_NAME})
 # -------------------------------------------------------------------------------------------------
 add_target_install(
     TARGET ${PROJECT_NAME}
-    DESTINATION "examples/mdl_sdk/df_vulkan"
-    )
+    DESTINATION "examples/mdl_sdk/df_vulkan")

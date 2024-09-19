@@ -449,8 +449,10 @@ bool Mdl_material_target::add_material_to_link_unit(
 
     // compile cutout_opacity also as standalone version to be used in the anyhit programs,
     // to avoid costly precalculation of expressions only used by other expressions
-    mi::neuraylib::Target_function_description standalone_opacity(
-        "geometry.cutout_opacity", "mdl_standalone_geometry_cutout_opacity");
+    mi::neuraylib::Target_function_description standalone_opacity{
+        "geometry.cutout_opacity",
+        "mdl_standalone_geometry_cutout_opacity"
+    };
 
     link_unit->add_material(
         compiled_material.get(),

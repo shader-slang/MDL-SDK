@@ -110,13 +110,12 @@ create_from_base_preset(
     EXAMPLE)
 
 # add slang headers
-include_directories(slang/include)
+include_directories(${CMAKE_SOURCE_DIR}/slang/include)
 
 # link with the slang libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/slang/lib/slang.lib
-    ${CMAKE_CURRENT_LIST_DIR}/slang/lib/slang-rt.lib)
-
+    ${CMAKE_SOURCE_DIR}/slang/lib/slang.lib
+    ${CMAKE_SOURCE_DIR}/slang/lib/slang-rt.lib)
 # add dependencies
 target_add_dependencies(TARGET ${PROJECT_NAME}
     DEPENDS
