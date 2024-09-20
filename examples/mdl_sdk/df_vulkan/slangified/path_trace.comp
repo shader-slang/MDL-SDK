@@ -567,6 +567,7 @@ void trace_path(inout Ray_state ray_state, inout uint seed)
 //-------------------------------------------------------------------------------------------------
 // entry point
 //-------------------------------------------------------------------------------------------------
+[shader("compute")]
 void main()
 {
     ivec2 image_size = imageSize(uBeautyBuffer);

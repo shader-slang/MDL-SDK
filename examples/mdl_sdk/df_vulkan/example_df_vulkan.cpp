@@ -190,6 +190,43 @@ bool Slang_global_state::load()
     return (loaded = true);
 }
 
+// Utility functions to slangify this application
+template <typename T>
+void ensure_success(T result,
+    const char *const success,
+    const char *const failure,
+    const Slang::ComPtr<slang::IBlob> &diagnostics)
+{
+    using Base = std::decay_t <T>;
+
+    if constexpr (std::is_same_v <Base, Slang::Result>)
+    {
+        if (SLANG_FAILED(result))
+        {
+            printf("[Slangified: ERROR] %s\n", failure);
+
+            if (diagnostics)
+                printf("%s\n", (char *) diagnostics->getBufferPointer());
+
+            exit_failure(failure);
+        }
+    }
+    else // Assumes boolean type
+    {
+        if (!result)
+        {
+            printf("[Slangified: ERROR] %s\n", failure);
+
+            if (diagnostics)
+                printf("%s\n", (char *) diagnostics->getBufferPointer());
+
+            exit_failure(failure);
+        }
+    }
+
+    printf("[Slangified: OK] %s\n", success);
+}
+
 VkShaderModule shader_module_from_blob(const VkDevice& device, const Slang::ComPtr<slang::IBlob>& spirv)
 {
     VkShaderModuleCreateInfo shader_module_create_info = {};
@@ -549,6 +586,8 @@ private:
     void create_material_textures_index_buffer(const std::vector<uint32_t>& indices);
 
     void create_accumulation_images();
+
+    void prepare_shader_source();
 
     VkShaderModule create_path_trace_shader_module();
 
@@ -1144,12 +1183,14 @@ void Df_vulkan_app::create_accumulation_images()
         m_device, &image_view_create_info, nullptr, &m_auxiliary_normal_texture.image_view));
 }
 
-VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
+void Df_vulkan_app::prepare_shader_source()
 {
     std::string df_glsl_source = m_target_code->get_code();
 
-    std::string path_trace_shader_source = mi::examples::io::read_text_file(
-        mi::examples::io::get_executable_folder() + "/" + "path_trace.comp");
+    std::string path_trace_path = mi::examples::io::get_executable_folder()
+        + "/slangified/path_trace.comp";
+
+    std::string path_trace_shader_source = mi::examples::io::read_text_file(path_trace_path);
 
     std::vector<std::string> defines;
     defines.push_back("LOCAL_SIZE_X=" + std::to_string(g_local_size_x));
@@ -1184,13 +1225,16 @@ VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
             defines.push_back("BACKFACE_EMISSION_INTENSITY");
     }
 
-    const char *const DESTINATION = "slangified/material.slang";
+    // Write to file
+    #define DESTINATION "slangified/material.slang"
+    
+    Slang::ComPtr<slang::IBlob> diagnostics;
 
-    printf("[S] writing generated shader to file (%s)...\n", DESTINATION);
-
-    std::ofstream fout(DESTINATION);
+    ensure_success(true, "writing generated shader to file " DESTINATION, "", diagnostics);
 
     // Manually inserting defines into the shader
+    std::ofstream fout(DESTINATION);
+
     for (auto& str : defines)
     {
         fout << "#define ";
@@ -1208,34 +1252,33 @@ VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
     fout << "\n";
     fout << path_trace_shader_source;
     fout.close();
+}
 
-    // Compilation with Slang    
-    printf("[S] compiling generated material with slang...\n");
+VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
+{
+    prepare_shader_source();
 
+    // Get the local session; assumed to be loaded
     auto &session = g_slang.session;
 
+    // Diagnostic messages
     Slang::ComPtr<slang::IBlob> diagnostics;
 
+    // Compilation with Slang
+    ensure_success(true, "compiling generated material with slang...", "", diagnostics);
+
     auto module = session->loadModule("material", diagnostics.writeRef());
-
-    printf("[S] module address: %p\n", module);
-    if (!module)
-    {
-        printf("failed to load module:\n%s\n",
-            (char *) diagnostics.get()->getBufferPointer());
-        exit_failure("failed to compile module");
-    }
-
-    printf("[S] sucessfully loaded module...\n");
+    ensure_success(module,
+        "successfully loaded module...",
+        "failed to load module:",
+        diagnostics);
 
     Slang::ComPtr<slang::IEntryPoint> kernel;
-
     Slang::Result r_entry = module->findEntryPointByName("main", kernel.writeRef());
-    if (SLANG_FAILED(r_entry))
-    {
-        printf("[S] failed to find main kernel entry point\n");
-        exit_failure("failed to load entry point");
-    }
+    ensure_success(r_entry,
+        "found main kernel entry point",
+        "failed to find main kernel entry point",
+        diagnostics);
 
     Slang::ComPtr<slang::IComponentType> group;
 
@@ -1244,36 +1287,24 @@ VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
         entry_points, 1,
         group.writeRef(),
         diagnostics.writeRef());
-
-    if (SLANG_FAILED(r_composed))
-    {
-        printf("[S] failed to construct composed program:\n%s\n",
-            (char *) diagnostics.get()->getBufferPointer());
-        exit_failure("failed to create composite component type");
-    }
+    ensure_success(r_composed,
+        "successfully created composite component type...",
+        "failed to create composite component type:",
+        diagnostics);
 
     Slang::ComPtr<slang::IComponentType> linked;
     Slang::Result r_linked = group->link(linked.writeRef(), diagnostics.writeRef());
-    if (SLANG_FAILED(r_linked))
-    {
-        printf("[S] failed to link program:\n%s\n",
-            (char *) diagnostics.get()->getBufferPointer());
-        exit_failure("failed to link program");
-    }
-
-    printf("[S] successfully linked program\n");
-
+    ensure_success(r_linked,
+        "successfully linked program...",
+        "failed to link program:",
+        diagnostics);
 
 	Slang::ComPtr<slang::IBlob> spirv;
 	Slang::Result r_target_code = linked->getTargetCode(0, spirv.writeRef(), diagnostics.writeRef());
-	if (SLANG_FAILED(r_target_code))
-	{
-		printf("[S] failed to get SPIRV target code:\n");
-		printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
-        exit_failure("failed to get SPIRV target code");
-	}
-
-	printf("[S] successfully retrieved SPIRV target code\n");
+    ensure_success(r_target_code,
+        "successfully retrieved SPIRV target code...",
+        "failed to get SPIRV target code:",
+        diagnostics);
 
     return shader_module_from_blob(m_device, spirv);
 }

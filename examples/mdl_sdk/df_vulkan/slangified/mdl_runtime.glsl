@@ -106,95 +106,99 @@ uniform sampler3D uMaterialTextures3D[NUM_MATERIAL_TEXTURES_3D];
 
 #define BSDF_USE_MATERIAL_IOR (-1.0)
 
-struct State
-{
-    vec3 normal;
-    vec3 geom_normal;
-    vec3 position;
-    float animation_time;
-    vec3 text_coords[1];
-    vec3 tangent_u[1];
-    vec3 tangent_v[1];
-    int ro_data_segment_offset;
-    mat4 world_to_object;
-    mat4 object_to_world;
-    int object_id;
-    float meters_per_scene_unit;
-    int arg_block_offset;
-};
+// NOTE: These structures are defined in material.slang by the time of generation
+// and slang will complain if there are duplicate definitions of structures. Hence
+// why these structures have been commented out.
 
-struct Bsdf_sample_data
-{
-    /*Input*/ vec3 ior1;           // IOR current med
-    /*Input*/ vec3 ior2;           // IOR other side
-    /*Input*/ vec3 k1;             // outgoing direction
-    /*Output*/ vec3 k2;            // incoming direction
-    /*Input*/ vec4 xi;             // pseudo-random sample numbers in range [0, 1)
-    /*Output*/ float pdf;          // pdf (non-projected hemisphere)
-    /*Output*/ vec3 bsdf_over_pdf; // bsdf * dot(normal, k2) / pdf
-    /*Output*/ int event_type;     // the type of event for the generated sample
-    /*Output*/ int handle;         // handle of the sampled elemental BSDF (lobe)
-};
+// struct State
+// {
+//     vec3 normal;
+//     vec3 geom_normal;
+//     vec3 position;
+//     float animation_time;
+//     vec3 text_coords[1];
+//     vec3 tangent_u[1];
+//     vec3 tangent_v[1];
+//     int ro_data_segment_offset;
+//     mat4 world_to_object;
+//     mat4 object_to_world;
+//     int object_id;
+//     float meters_per_scene_unit;
+//     int arg_block_offset;
+// };
 
-struct Bsdf_evaluate_data
-{
-    /*Input*/ vec3 ior1;          // IOR current medium
-    /*Input*/ vec3 ior2;          // IOR other side
-    /*Input*/ vec3 k1;            // outgoing direction
-    /*Input*/ vec3 k2;            // incoming direction
-    /*Output*/ vec3 bsdf_diffuse; // bsdf_diffuse * dot(normal, k2)
-    /*Output*/ vec3 bsdf_glossy;  // bsdf_glossy * dot(normal, k2)
-    /*Output*/ float pdf;         // pdf (non-projected hemisphere)
-};
+// struct Bsdf_sample_data
+// {
+//     /*Input*/ vec3 ior1;           // IOR current med
+//     /*Input*/ vec3 ior2;           // IOR other side
+//     /*Input*/ vec3 k1;             // outgoing direction
+//     /*Output*/ vec3 k2;            // incoming direction
+//     /*Input*/ vec4 xi;             // pseudo-random sample numbers in range [0, 1)
+//     /*Output*/ float pdf;          // pdf (non-projected hemisphere)
+//     /*Output*/ vec3 bsdf_over_pdf; // bsdf * dot(normal, k2) / pdf
+//     /*Output*/ int event_type;     // the type of event for the generated sample
+//     /*Output*/ int handle;         // handle of the sampled elemental BSDF (lobe)
+// };
 
-struct Bsdf_auxiliary_data
-{
-    /*Input*/ vec3 ior1;    // IOR current medium
-    /*Input*/ vec3 ior2;    // IOR other side
-    /*Input*/ vec3 k1;      // outgoing direction
-    /*Output*/ vec3 albedo_diffuse;
-    /*Output*/ vec3 albedo_glossy;
-    /*Output*/ vec3 normal;
-    /*Output*/ vec3 roughness;
-};
+// struct Bsdf_evaluate_data
+// {
+//     /*Input*/ vec3 ior1;          // IOR current medium
+//     /*Input*/ vec3 ior2;          // IOR other side
+//     /*Input*/ vec3 k1;            // outgoing direction
+//     /*Input*/ vec3 k2;            // incoming direction
+//     /*Output*/ vec3 bsdf_diffuse; // bsdf_diffuse * dot(normal, k2)
+//     /*Output*/ vec3 bsdf_glossy;  // bsdf_glossy * dot(normal, k2)
+//     /*Output*/ float pdf;         // pdf (non-projected hemisphere)
+// };
 
-struct Bsdf_pdf_data
-{
-    /*Input*/ vec3 ior1;  // IOR current medium
-    /*Input*/ vec3 ior2;  // IOR other side
-    /*Input*/ vec3 k1;    // outgoing direction
-    /*Input*/ vec3 k2;    // incoming direction
-    /*Output*/ float pdf; // pdf (non-projected hemisphere)
-};
+// struct Bsdf_auxiliary_data
+// {
+//     /*Input*/ vec3 ior1;    // IOR current medium
+//     /*Input*/ vec3 ior2;    // IOR other side
+//     /*Input*/ vec3 k1;      // outgoing direction
+//     /*Output*/ vec3 albedo_diffuse;
+//     /*Output*/ vec3 albedo_glossy;
+//     /*Output*/ vec3 normal;
+//     /*Output*/ vec3 roughness;
+// };
 
-struct Edf_sample_data
-{
-    /*Input*/ vec4 xi;            // pseudo-random sample numbers in range [0, 1)
-    /*Output*/ vec3 k1;           // outgoing direction
-    /*Output*/ float pdf;         // pdf (non-projected hemisphere)
-    /*Output*/ vec3 edf_over_pdf; // edf * dot(normal,k1) / pdf
-    /*Output*/ int event_type;    // the type of event for the generated sample
-    /*Output*/ int handle;        // handle of the sampled elemental EDF (lobe)
-};
+// struct Bsdf_pdf_data
+// {
+//     /*Input*/ vec3 ior1;  // IOR current medium
+//     /*Input*/ vec3 ior2;  // IOR other side
+//     /*Input*/ vec3 k1;    // outgoing direction
+//     /*Input*/ vec3 k2;    // incoming direction
+//     /*Output*/ float pdf; // pdf (non-projected hemisphere)
+// };
 
-struct Edf_evaluate_data
-{
-    /*Input*/ vec3 k1;    // outgoing direction
-    /*Output*/ float cos; // dot(normal, k1)
-    /*Output*/ vec3 edf;  // edf
-    /*Output*/ float pdf; // pdf (non-projected hemisphere)
-};
+// struct Edf_sample_data
+// {
+//     /*Input*/ vec4 xi;            // pseudo-random sample numbers in range [0, 1)
+//     /*Output*/ vec3 k1;           // outgoing direction
+//     /*Output*/ float pdf;         // pdf (non-projected hemisphere)
+//     /*Output*/ vec3 edf_over_pdf; // edf * dot(normal,k1) / pdf
+//     /*Output*/ int event_type;    // the type of event for the generated sample
+//     /*Output*/ int handle;        // handle of the sampled elemental EDF (lobe)
+// };
 
-struct Edf_auxiliary_data
-{
-    /*Input*/ vec3 k1; // outgoing direction
-};
+// struct Edf_evaluate_data
+// {
+//     /*Input*/ vec3 k1;    // outgoing direction
+//     /*Output*/ float cos; // dot(normal, k1)
+//     /*Output*/ vec3 edf;  // edf
+//     /*Output*/ float pdf; // pdf (non-projected hemisphere)
+// };
 
-struct Edf_pdf_data
-{
-    /*Input*/ vec3 k1;    // outgoing direction
-    /*Output*/ float pdf; // pdf (non-projected hemisphere)
-};
+// struct Edf_auxiliary_data
+// {
+//     /*Input*/ vec3 k1; // outgoing direction
+// };
+
+// struct Edf_pdf_data
+// {
+//     /*Input*/ vec3 k1;    // outgoing direction
+//     /*Output*/ float pdf; // pdf (non-projected hemisphere)
+// };
 
 
 //-----------------------------------------------------------------------------
