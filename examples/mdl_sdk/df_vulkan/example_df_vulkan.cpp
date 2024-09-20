@@ -190,6 +190,22 @@ bool Slang_global_state::load()
     return (loaded = true);
 }
 
+VkShaderModule shader_module_from_blob(const VkDevice& device, const Slang::ComPtr<slang::IBlob>& spirv)
+{
+    VkShaderModuleCreateInfo shader_module_create_info = {};
+    shader_module_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    shader_module_create_info.pCode = (uint32_t *) spirv->getBufferPointer();
+    shader_module_create_info.codeSize = spirv->getBufferSize();
+    
+    VkShaderModule shader_module;
+    VK_CHECK(vkCreateShaderModule(device,
+        &shader_module_create_info,
+        nullptr,
+        &shader_module));
+
+    return shader_module;
+}
+
 //------------------------------------------------------------------------------
 // MDL-Vulkan resource interop
 //------------------------------------------------------------------------------
@@ -1173,6 +1189,21 @@ VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
     printf("[S] writing generated shader to file (%s)...\n", DESTINATION);
 
     std::ofstream fout(DESTINATION);
+
+    // Manually inserting defines into the shader
+    for (auto& str : defines)
+    {
+        fout << "#define ";
+
+        auto it = str.find_first_of("=");
+        if (it == std::string::npos)
+            fout << str;
+        else
+            fout << str.substr(0, it) << " " << str.substr(it + 1);
+        
+		fout << "\n";
+    }
+
     fout << df_glsl_source;
     fout << "\n";
     fout << path_trace_shader_source;
@@ -1181,9 +1212,10 @@ VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
     // Compilation with Slang    
     printf("[S] compiling generated material with slang...\n");
 
+    auto &session = g_slang.session;
+
     Slang::ComPtr<slang::IBlob> diagnostics;
 
-    auto &session = g_slang.session;
     auto module = session->loadModule("material", diagnostics.writeRef());
 
     printf("[S] module address: %p\n", module);
@@ -1231,10 +1263,19 @@ VkShaderModule Df_vulkan_app::create_path_trace_shader_module()
 
     printf("[S] successfully linked program\n");
 
-    return mi::examples::vk::create_shader_module_from_sources(m_device,
-        { df_glsl_source, path_trace_shader_source },
-        EShLangCompute,
-        defines);
+
+	Slang::ComPtr<slang::IBlob> spirv;
+	Slang::Result r_target_code = linked->getTargetCode(0, spirv.writeRef(), diagnostics.writeRef());
+	if (SLANG_FAILED(r_target_code))
+	{
+		printf("[S] failed to get SPIRV target code:\n");
+		printf("%s\n", (char *) diagnostics.get()->getBufferPointer());
+        exit_failure("failed to get SPIRV target code");
+	}
+
+	printf("[S] successfully retrieved SPIRV target code\n");
+
+    return shader_module_from_blob(m_device, spirv);
 }
 
 // Creates the descriptors set layout which is used to create the
